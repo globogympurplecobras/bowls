@@ -1238,6 +1238,7 @@ function buildRinkSessionMatches(dayId, si, rinkIdx) {
       rink,
       isTV: rinkIdx === 0 || rinkIdx === 3,
       discipline: DISCIPLINES[discCode] || discCode,
+      disciplineCode: discCode,
       section: row.time,
       time: row.time,
       commentatorCode: rinkIdx === 0 ? row.tv1 : rinkIdx === 3 ? row.tv4 : null,
@@ -1258,9 +1259,32 @@ function defaultScoreState() {
     status: 'upcoming',
     sets: [],
     currentSet: 0,
-    endsInSet: 8,
     endsPlayed: 0
   };
+}
+// Singles matches are two sets of 7 ends; pairs and para matches are two
+// sets of 5 ends. Either format drops to a single 1-end tiebreaker set if
+// the first two sets are split (one set win each).
+function endsPerSet(disciplineCode, setIndex) {
+  if (setIndex >= 2) return 1;
+  return disciplineCode === 'MS' || disciplineCode === 'WS' ? 7 : 5;
+}
+function setWinner(set) {
+  if (!set || set.a === set.b) return null;
+  return set.a > set.b ? 'a' : 'b';
+}
+function needsTiebreak(sets) {
+  if (sets.length < 2) return false;
+  const w0 = setWinner(sets[0]);
+  const w1 = setWinner(sets[1]);
+  return !!w0 && !!w1 && w0 !== w1;
+}
+// Whether a producer can still add another set: freely for the first two,
+// only for a third (tiebreaker) set if those two were split, never beyond that.
+function canAddSet(sets) {
+  if (sets.length < 2) return true;
+  if (sets.length === 2) return needsTiebreak(sets);
+  return false;
 }
 const NAV = [{
   id: 'wall',
@@ -1490,7 +1514,7 @@ function RinkTile({
     match: match
   }), match.status !== 'upcoming' && /*#__PURE__*/React.createElement(EndPips, {
     played: match.endsPlayed,
-    total: match.endsInSet
+    total: endsPerSet(match.disciplineCode, match.currentSet)
   }), /*#__PURE__*/React.createElement(UpcomingList, {
     items: rest,
     onFocus: onFocus
@@ -1536,10 +1560,10 @@ function MatchDetail({
   }, "Standby"), /*#__PURE__*/React.createElement("button", {
     className: 'status-btn ' + (match.status === 'live' ? 'status-btn-active' : ''),
     onClick: () => onSetStatus(match.id, 'live')
-  }, "Go live"), match.status === 'live' && /*#__PURE__*/React.createElement("button", {
+  }, "Go live"), match.status === 'live' && canAddSet(match.sets) && /*#__PURE__*/React.createElement("button", {
     className: "status-btn",
     onClick: () => onNextSet(match.id)
-  }, "Next set"), /*#__PURE__*/React.createElement("button", {
+  }, needsTiebreak(match.sets) ? 'Start tiebreaker' : 'Next set'), /*#__PURE__*/React.createElement("button", {
     className: 'status-btn ' + (match.status === 'final' ? 'status-btn-active' : ''),
     onClick: () => onSetStatus(match.id, 'final')
   }, "Mark final")), !match.isTV && /*#__PURE__*/React.createElement("div", {
@@ -1550,7 +1574,7 @@ function MatchDetail({
     className: "panel"
   }, /*#__PURE__*/React.createElement("div", {
     className: "panel-title"
-  }, "Set score — Set ", match.currentSet + 1), /*#__PURE__*/React.createElement("div", {
+  }, "Set score — ", match.currentSet >= 2 ? 'Tiebreaker (1 end)' : `Set ${match.currentSet + 1} of 2 (${endsPerSet(match.disciplineCode, match.currentSet)} ends)`), /*#__PURE__*/React.createElement("div", {
     className: "score-editor"
   }, /*#__PURE__*/React.createElement("div", {
     className: "score-editor-row"
@@ -2016,6 +2040,7 @@ function App() {
   };
   const nextSet = id => {
     const current = scores[id] || defaultScoreState();
+    if (!canAddSet(current.sets)) return;
     const sets = [...current.sets, {
       a: 0,
       b: 0
