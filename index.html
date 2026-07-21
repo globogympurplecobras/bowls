@@ -136,6 +136,10 @@
   .tile-status-controls { display: flex; gap: 4px; flex-wrap: wrap; margin: 2px 0; }
   .tile-status-btn { background: var(--panel); border: 1px solid var(--line); color: var(--text-dim); font-size: 10px; padding: 4px 8px; border-radius: 5px; }
   .tile-status-btn-active { background: var(--carpet); border-color: var(--carpet-light); color: var(--text); }
+  .tile-set-nav { display: flex; align-items: center; gap: 6px; margin: 2px 0; }
+  .tile-set-nav button { background: var(--panel-raised); border: 1px solid var(--line); color: var(--text); border-radius: 4px; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 13px; line-height: 1; }
+  .tile-set-nav button:disabled { opacity: 0.35; cursor: default; }
+  .tile-set-nav-label { font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.06em; color: var(--text-faint); }
   .tag-winner { background: rgba(58,160,214,0.15); color: var(--carpet-light); }
   .team-row-winner .team-name { font-weight: 700; }
   .tile-winner-note { font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.06em; color: var(--carpet-light); }
@@ -1460,6 +1464,32 @@ function TileStatusControls({
     onClick: stop(() => onSetStatus(match.id, 'final'))
   }, "Final"));
 }
+// Lets a producer step between existing sets to view/edit one that isn't
+// the newest — separate from "Next set"/"Tiebreak", which only ever add a
+// new one. Only shown once a match has at least one set recorded.
+function SetNav({
+  match,
+  onSelectSet
+}) {
+  if (!match.sets.length) return null;
+  const idx = match.currentSet;
+  const label = idx >= 2 ? 'Tiebreak' : `Set ${idx + 1} of 2`;
+  const stop = fn => e => {
+    e.stopPropagation();
+    fn();
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    className: "tile-set-nav"
+  }, /*#__PURE__*/React.createElement("button", {
+    disabled: idx <= 0,
+    onClick: stop(() => onSelectSet(match.id, idx - 1))
+  }, "‹"), /*#__PURE__*/React.createElement("span", {
+    className: "tile-set-nav-label"
+  }, label), /*#__PURE__*/React.createElement("button", {
+    disabled: idx >= match.sets.length - 1,
+    onClick: stop(() => onSelectSet(match.id, idx + 1))
+  }, "›"));
+}
 function RinkTile({
   match,
   upcoming,
@@ -1469,7 +1499,8 @@ function RinkTile({
   onAdjust,
   onSetScore,
   onSetStatus,
-  onNextSet
+  onNextSet,
+  onSelectSet
 }) {
   const rest = upcoming || [];
   const set = match.sets[match.currentSet] || {
@@ -1516,7 +1547,10 @@ function RinkTile({
     }), match.b)), scoreEdit, /*#__PURE__*/React.createElement(StatusTag, {
       status: match.status,
       startsIn: match.startsIn
-    })), /*#__PURE__*/React.createElement(ScoreLine, {
+    })), onSelectSet && /*#__PURE__*/React.createElement(SetNav, {
+      match: match,
+      onSelectSet: onSelectSet
+    }), /*#__PURE__*/React.createElement(ScoreLine, {
       match: match,
       compact: true
     }), winner && /*#__PURE__*/React.createElement("div", {
@@ -1556,6 +1590,9 @@ function RinkTile({
     match: match,
     onSetStatus: onSetStatus,
     onNextSet: onNextSet
+  }), onSelectSet && /*#__PURE__*/React.createElement(SetNav, {
+    match: match,
+    onSelectSet: onSelectSet
   }), /*#__PURE__*/React.createElement("div", {
     className: "tile-discipline"
   }, match.discipline, " · ", match.section), /*#__PURE__*/React.createElement("div", {
@@ -1600,6 +1637,7 @@ function MatchDetail({
   onAdjust,
   onSetStatus,
   onNextSet,
+  onSelectSet,
   onNotesChange
 }) {
   // Notes are edited locally and flushed to the shared store (Firebase or
@@ -1648,7 +1686,10 @@ function MatchDetail({
     className: "panel"
   }, /*#__PURE__*/React.createElement("div", {
     className: "panel-title"
-  }, "Set score — ", match.currentSet >= 2 ? 'Tiebreaker (1 end)' : `Set ${match.currentSet + 1} of 2 (${endsPerSet(match.disciplineCode, match.currentSet)} ends)`), /*#__PURE__*/React.createElement("div", {
+  }, "Set score — ", match.currentSet >= 2 ? 'Tiebreaker (1 end)' : `Set ${match.currentSet + 1} of 2 (${endsPerSet(match.disciplineCode, match.currentSet)} ends)`), onSelectSet && /*#__PURE__*/React.createElement(SetNav, {
+    match: match,
+    onSelectSet: onSelectSet
+  }), /*#__PURE__*/React.createElement("div", {
     className: "score-editor"
   }, /*#__PURE__*/React.createElement("div", {
     className: "score-editor-row"
@@ -2126,6 +2167,18 @@ function App() {
       status: 'live'
     });
   };
+  // Switches which existing set is being viewed/edited, independent of
+  // adding a new one — this is what lets a producer step back to fix an
+  // earlier set instead of being stuck on whichever one is newest.
+  const selectSet = (id, index) => {
+    const current = scores[id] || defaultScoreState();
+    if (!current.sets.length) return;
+    const clamped = Math.max(0, Math.min(index, current.sets.length - 1));
+    writeScore(id, {
+      ...current,
+      currentSet: clamped
+    });
+  };
   const openMatch = id => {
     setOpenId(id);
     setView('detail');
@@ -2255,7 +2308,8 @@ function App() {
     onFocus: id => focusMatch(rinkIdx, id),
     onAdjust: adjust,
     onSetStatus: setMatchStatus,
-    onNextSet: nextSet
+    onNextSet: nextSet,
+    onSelectSet: selectSet
   }))), /*#__PURE__*/React.createElement("div", {
     className: "section-label",
     style: {
@@ -2275,6 +2329,7 @@ function App() {
     onSetScore: setSetScore,
     onSetStatus: setMatchStatus,
     onNextSet: nextSet,
+    onSelectSet: selectSet,
     compact: true
   })))), view === 'detail' && /*#__PURE__*/React.createElement(MatchDetail, {
     match: activeMatch,
@@ -2282,6 +2337,7 @@ function App() {
     onAdjust: adjust,
     onSetStatus: setMatchStatus,
     onNextSet: nextSet,
+    onSelectSet: selectSet,
     onNotesChange: setNotes
   }), view === 'schedule' && /*#__PURE__*/React.createElement(Schedule, {
     dayId: dayId
