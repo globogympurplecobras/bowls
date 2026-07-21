@@ -189,6 +189,7 @@
   .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px; }
   .panel-title { font-family: 'Oswald', sans-serif; font-size: 14px; text-transform: uppercase; letter-spacing: 0.03em; margin-bottom: 12px; }
   .panel-note { display: flex; align-items: flex-start; gap: 6px; font-size: 11px; color: var(--text-faint); margin-top: 10px; line-height: 1.5; }
+  .panel-note-warn { color: var(--standby); }
 
   .score-editor-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
   .score-editor-row .team-name { flex: 1; font-size: 13px; }
@@ -245,6 +246,17 @@
   if (FIREBASE_ENABLED) {
     firebase.initializeApp(FIREBASE_CONFIG);
     db = firebase.firestore();
+    // Offline persistence: queues writes in IndexedDB when the connection
+    // drops (venue wifi flaking mid-session) and replays them automatically
+    // once it's back, instead of silently losing edits. synchronizeTabs
+    // lets more than one browser tab on this device share the same cache.
+    db.enablePersistence({ synchronizeTabs: true }).catch((err) => {
+      if (err.code === 'failed-precondition') {
+        console.warn('Firestore offline persistence unavailable (another tab has it open without sync support).');
+      } else if (err.code === 'unimplemented') {
+        console.warn('Firestore offline persistence not supported in this browser.');
+      }
+    });
     firebase.auth().signInAnonymously().catch((e) => console.error('Firebase sign-in failed:', e));
   }
 </script>
@@ -1654,16 +1666,42 @@ function Rundown() {
     className: "panel-note"
   }, "Graphic codes: ", Object.entries(GFX_CODES).map(([k, v]) => `${k} = ${v}`).join(' · ')));
 }
-function Sync() {
-  return /*#__PURE__*/React.createElement("div", {
-    className: "view"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "view-header"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "eyebrow"
-  }, "DATA SOURCE"), /*#__PURE__*/React.createElement("h2", null, "Sync")), /*#__PURE__*/React.createElement("div", {
-    className: "sync-grid"
-  }, /*#__PURE__*/React.createElement("div", {
+// Backup filename carries a timestamp so repeated downloads don't clobber
+// each other on the device's Downloads folder.
+function backupFilename() {
+  const d = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  return `bowls-scores-backup-${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}.json`;
+}
+function downloadScoresBackup(scores) {
+  const blob = new Blob([JSON.stringify(scores, null, 2)], {
+    type: 'application/json'
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = backupFilename();
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+function Sync({
+  scores
+}) {
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  useEffect(() => {
+    const goOnline = () => setIsOnline(true);
+    const goOffline = () => setIsOnline(false);
+    window.addEventListener('online', goOnline);
+    window.addEventListener('offline', goOffline);
+    return () => {
+      window.removeEventListener('online', goOnline);
+      window.removeEventListener('offline', goOffline);
+    };
+  }, []);
+  const matchCount = Object.keys(scores).length;
+  const firebaseCard = /*#__PURE__*/React.createElement("div", {
     className: "panel sync-card"
   }, /*#__PURE__*/React.createElement("div", {
     className: "panel-title"
@@ -1675,13 +1713,46 @@ function Sync() {
     className: "panel-note"
   }, "Not configured. Right now this is a single-device tool — score edits save to this browser only (localStorage). Paste your Firebase Web config into the ", /*#__PURE__*/React.createElement("code", {
     className: "inline"
-  }, "FIREBASE_CONFIG"), " block near the top of this HTML file whenever you want another device to see the same live scores. No other changes needed.")), /*#__PURE__*/React.createElement("div", {
+  }, "FIREBASE_CONFIG"), " block near the top of this HTML file whenever you want another device to see the same live scores. No other changes needed."));
+  const offlineNote = !FIREBASE_ENABLED ? "Not relevant in local-device mode — everything already lives in this browser's storage with nothing to reconnect to." : isOnline ? "Online. Firestore also caches writes on-device (offline persistence is on), so if the connection drops mid-edit, nothing needs to change here — it queues automatically." : "Offline right now. Score and note edits are still being saved locally and will sync to Firebase automatically the moment this device reconnects — keep working as normal.";
+  const offlineCard = /*#__PURE__*/React.createElement("div", {
+    className: "panel sync-card"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "panel-title"
+  }, "Offline resilience"), /*#__PURE__*/React.createElement("div", {
+    className: 'panel-note' + (FIREBASE_ENABLED && !isOnline ? ' panel-note-warn' : '')
+  }, offlineNote));
+  const backupCard = /*#__PURE__*/React.createElement("div", {
+    className: "panel sync-card"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "panel-title"
+  }, "Backup"), /*#__PURE__*/React.createElement("div", {
+    className: "panel-note"
+  }, matchCount ? `${matchCount} match record${matchCount === 1 ? '' : 's'} in local state right now.` : 'No match records yet — nothing to back up until scores start coming in.'), /*#__PURE__*/React.createElement("button", {
+    className: "ghost-btn",
+    onClick: () => downloadScoresBackup(scores)
+  }, "Download backup (JSON)"), /*#__PURE__*/React.createElement("div", {
+    className: "panel-note",
+    style: {
+      marginTop: 8
+    }
+  }, "A manual snapshot of every score/status/note currently held — there's no other live-results source for this event, so this is the safety net if Firestore has a problem mid-session."));
+  const liveResultsCard = /*#__PURE__*/React.createElement("div", {
     className: "panel sync-card"
   }, /*#__PURE__*/React.createElement("div", {
     className: "panel-title"
   }, "Live results pull"), /*#__PURE__*/React.createElement("div", {
     className: "panel-note"
-  }, "Schedule and commentator rota are loaded straight into this file. Live scores still need a source once matches start — manual entry (this app) looks like the reliable path based on what's publicly available."))));
+  }, "Schedule and commentator rota are loaded straight into this file. Live scores still need a source once matches start — manual entry (this app) looks like the reliable path based on what's publicly available."));
+  return /*#__PURE__*/React.createElement("div", {
+    className: "view"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "view-header"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "eyebrow"
+  }, "DATA SOURCE"), /*#__PURE__*/React.createElement("h2", null, "Sync")), /*#__PURE__*/React.createElement("div", {
+    className: "sync-grid"
+  }, firebaseCard, offlineCard, backupCard, liveResultsCard));
 }
 function App() {
   const [view, setView] = useState('wall');
@@ -1933,7 +2004,9 @@ function App() {
     dayId: dayId
   }), view === 'rundown' && /*#__PURE__*/React.createElement(Rundown, null), view === 'standings' && /*#__PURE__*/React.createElement(Standings, {
     scores
-  }), view === 'sync' && /*#__PURE__*/React.createElement(Sync, null))));
+  }), view === 'sync' && /*#__PURE__*/React.createElement(Sync, {
+    scores
+  }))));
 }
 ReactDOM.createRoot(document.getElementById('root')).render(/*#__PURE__*/React.createElement(App, null));
 </script>
