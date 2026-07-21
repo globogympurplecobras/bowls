@@ -1,0 +1,1877 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Gallery Console — Indoor Bowls, Glasgow 2026</title>
+
+<!-- React + ReactDOM (UMD builds, no bundler needed) -->
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+
+<!-- Firebase (compat/namespaced SDK — plain script tags, no bundler).
+     Only actually used if FIREBASE_CONFIG below has a real apiKey; until
+     then the app runs entirely on local state, which is all a single
+     device needs today. -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+  html, body { margin: 0; padding: 0; }
+  .bowls-console {
+    --bg: #0A0D11; --panel: #12171E; --panel-raised: #182028; --line: #232C36;
+    --carpet: #123B52; --carpet-light: #3AA0D6;
+    --live: #FF6B5E; --standby: #F5B84D; --final: #8B96A3;
+    --text: #F5F8FA; --text-dim: #C3CCD5; --text-faint: #8E99A5;
+    --disc-ws-bg: rgba(212,83,126,0.22); --disc-ws-fg: #F4A9C1;
+    --disc-mp-bg: rgba(99,153,34,0.22); --disc-mp-fg: #A9D274;
+    --disc-ms-bg: rgba(55,138,221,0.22); --disc-ms-fg: #9AC4F2;
+    --disc-wp-bg: rgba(186,117,23,0.22); --disc-wp-fg: #F5C583;
+    --disc-para-bg: rgba(127,119,221,0.22); --disc-para-fg: #C4BFF2;
+    --tile-shade: #0E1620;
+    font-family: 'Manrope', sans-serif;
+    background: var(--bg); color: var(--text);
+    min-height: 100vh; display: flex; flex-direction: column;
+  }
+  .bowls-console.theme-light {
+    --bg: #FAFAF8; --panel: #FFFFFF; --panel-raised: #F0F2F4; --line: #DBE0E5;
+    --carpet: #DCEBF3; --carpet-light: #0F6DA8;
+    --live: #C7362A; --standby: #946200; --final: #6B7480;
+    --text: #14191E; --text-dim: #48525C; --text-faint: #6C7681;
+    --disc-ws-bg: #FBEAF0; --disc-ws-fg: #72243E;
+    --disc-mp-bg: #EAF3DE; --disc-mp-fg: #27500A;
+    --disc-ms-bg: #E6F1FB; --disc-ms-fg: #0C447C;
+    --disc-wp-bg: #FAEEDA; --disc-wp-fg: #633806;
+    --disc-para-bg: #EEEDFE; --disc-para-fg: #3C3489;
+    --tile-shade: #EEF2F5;
+  }
+  .bowls-console * { box-sizing: border-box; }
+  .bowls-console button { font-family: inherit; cursor: pointer; }
+
+  .topbar { display: flex; align-items: center; justify-content: space-between; padding: 16px 24px; border-bottom: 1px solid var(--line); gap: 16px; flex-wrap: wrap; }
+  .topbar-titles .eyebrow { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.14em; color: var(--carpet-light); }
+  .topbar-titles h1 { font-family: 'Oswald', sans-serif; font-weight: 600; font-size: 22px; letter-spacing: 0.02em; margin: 2px 0 0; text-transform: uppercase; }
+
+  .day-tabs { display: flex; gap: 4px; overflow-x: auto; padding: 2px; }
+  .day-tab { font-family: 'Oswald', sans-serif; font-size: 12px; letter-spacing: 0.05em; background: transparent; border: 1px solid var(--line); color: var(--text-dim); padding: 6px 10px; border-radius: 4px; white-space: nowrap; }
+  .day-tab-active { background: var(--carpet); border-color: var(--carpet-light); color: var(--text); }
+
+  .sync-pill { display: flex; align-items: center; gap: 6px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--text-faint); border: 1px solid var(--line); border-radius: 20px; padding: 5px 12px; }
+  .sync-pill .pulse { width: 6px; height: 6px; border-radius: 50%; background: var(--text-faint); }
+  .sync-pill.on .pulse { background: var(--standby); animation: blink 1.4s infinite; }
+
+  .theme-toggle { display: flex; align-items: center; gap: 4px; border: 1px solid var(--line); border-radius: 20px; padding: 3px; background: var(--panel); }
+  .theme-toggle button { background: transparent; border: none; color: var(--text-faint); font-size: 14px; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+  .theme-toggle button.theme-active { background: var(--carpet); color: var(--text); }
+
+  .body { display: flex; flex: 1; min-height: 0; }
+  .sidenav { width: 168px; border-right: 1px solid var(--line); padding: 16px 8px; display: flex; flex-direction: column; gap: 2px; flex-shrink: 0; }
+  .nav-item { display: flex; align-items: center; gap: 10px; background: transparent; border: none; color: var(--text-dim); padding: 10px 12px; border-radius: 6px; font-size: 13px; text-align: left; }
+  .nav-item:hover { background: var(--panel-raised); color: var(--text); }
+  .nav-item-active { background: var(--panel-raised); color: var(--text); box-shadow: inset 2px 0 0 var(--carpet-light); }
+
+  .main { flex: 1; padding: 24px; overflow-y: auto; }
+
+  .section-label { font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.12em; color: var(--text-faint); margin: 4px 0 10px; }
+  .wall-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .venue-strip { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+  @media (max-width: 720px) { .wall-grid, .venue-strip { grid-template-columns: 1fr; } .sidenav { width: 56px; } .nav-item span { display: none; } }
+
+  .tile { background: linear-gradient(160deg, var(--carpet) 0%, var(--tile-shade) 78%); border: 1px solid var(--line); border-radius: 8px; padding: 14px; text-align: left; color: var(--text); display: flex; flex-direction: column; gap: 10px; transition: transform 0.12s ease, border-color 0.12s ease; }
+  .tile:hover { transform: translateY(-2px); border-color: var(--carpet-light); }
+  .tile-live { border-color: rgba(228,72,60,0.4); }
+  .tile-final { opacity: 0.72; }
+  .tile-top { display: flex; justify-content: space-between; align-items: center; }
+  .tile-rink { font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.12em; color: var(--text-faint); display: flex; align-items: center; gap: 6px; }
+  .tv-chip { background: rgba(27,81,112,0.35); color: var(--carpet-light); padding: 2px 6px; border-radius: 3px; letter-spacing: 0.08em; }
+  .tile-discipline { font-size: 11px; color: var(--text-dim); }
+
+  .tile-compact { display: flex; align-items: center; gap: 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; text-align: left; color: var(--text); font-size: 12px; }
+  .tile-compact-rink { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--text-faint); }
+  .tile-compact-teams { display: flex; align-items: center; gap: 6px; flex: 1; color: var(--text-dim); }
+
+  .tag { font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.08em; padding: 3px 7px; border-radius: 3px; display: inline-flex; align-items: center; gap: 5px; }
+  .tag-live { background: rgba(228,72,60,0.15); color: var(--live); }
+  .tag-standby { background: rgba(232,163,61,0.15); color: var(--standby); }
+  .tag-final { background: rgba(91,102,114,0.2); color: var(--final); }
+  .dot-live { width: 6px; height: 6px; border-radius: 50%; background: var(--live); animation: blink 1.4s infinite; }
+  @keyframes blink { 0%,100% { opacity: 1 } 50% { opacity: 0.25 } }
+
+  .team-row { display: flex; align-items: center; gap: 8px; font-size: 13px; margin-bottom: 4px; }
+  .flag { font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 500; color: #fff; padding: 2px 5px; border-radius: 3px; letter-spacing: 0.03em; }
+  .team-name { color: var(--text); }
+
+  .scoreline { font-family: 'Oswald', sans-serif; font-size: 20px; display: flex; gap: 10px; }
+  .scoreline-upcoming { color: var(--text-faint); font-size: 14px; }
+  .set { color: var(--text-dim); }
+  .set-current { color: var(--text); }
+
+  .pips { display: flex; gap: 3px; }
+  .pip { width: 12px; height: 3px; border-radius: 2px; background: var(--line); }
+  .pip-done { background: var(--carpet-light); }
+
+  .view-header { margin-bottom: 18px; }
+  .sched-header { display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 10px; }
+  .eyebrow { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.14em; color: var(--carpet-light); }
+  .view h2 { font-family: 'Oswald', sans-serif; text-transform: uppercase; letter-spacing: 0.02em; margin: 2px 0 0; }
+
+  .legend-toggle { display: inline-flex; align-items: center; gap: 6px; background: var(--panel); border: 1px solid var(--line); color: var(--text-dim); font-size: 12px; padding: 6px 10px; border-radius: 6px; }
+  .legend-panel { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; margin-bottom: 16px; font-size: 12px; }
+  @media (max-width: 720px) { .legend-panel { grid-template-columns: 1fr; } }
+  .legend-title { font-family: 'Oswald', sans-serif; text-transform: uppercase; font-size: 12px; letter-spacing: 0.04em; color: var(--text); margin-bottom: 6px; }
+  .legend-row { color: var(--text-dim); margin-bottom: 3px; }
+  .legend-row b { color: var(--text); font-family: 'IBM Plex Mono', monospace; margin-right: 6px; }
+  .legend-muted { color: var(--text-faint); font-size: 11px; margin-top: 4px; }
+
+  .day-note { background: rgba(232,163,61,0.1); border: 1px solid rgba(232,163,61,0.25); color: var(--standby); font-size: 12px; padding: 8px 12px; border-radius: 6px; margin-bottom: 16px; }
+
+  .session-block { margin-bottom: 24px; }
+  .session-title { font-family: 'Oswald', sans-serif; font-size: 15px; text-transform: uppercase; letter-spacing: 0.02em; margin-bottom: 8px; }
+  .session-time { color: var(--text-faint); font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 400; text-transform: none; letter-spacing: 0; margin-left: 8px; }
+  .session-rowhead { display: grid; grid-template-columns: 56px 1fr 1fr 1fr 1fr; gap: 8px; font-family: 'IBM Plex Mono', monospace; font-size: 9px; letter-spacing: 0.08em; color: var(--text-faint); padding: 0 4px 6px; border-bottom: 1px solid var(--line); }
+  .session-rowhead em { color: var(--carpet-light); font-style: normal; }
+  .session-row { display: grid; grid-template-columns: 56px 1fr 1fr 1fr 1fr; gap: 8px; padding: 8px 4px; border-bottom: 1px solid var(--line); align-items: center; }
+  .session-row-time { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--text-dim); }
+  @media (max-width: 900px) { .session-rowhead { display: none; } .session-row { grid-template-columns: 1fr 1fr; row-gap: 6px; } .session-row-time { grid-column: 1 / -1; } }
+
+  .mcell { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12px; color: var(--text-dim); padding: 4px 6px; border-radius: 6px; border-left: 3px solid transparent; }
+  .mcell-tv { color: var(--text); border-left-color: var(--carpet-light); background: var(--panel); }
+  .mcell-empty { color: var(--text-faint); }
+  .mcell-commentator { font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 600; background: var(--carpet-light); color: var(--bg); padding: 3px 7px; border-radius: 4px; letter-spacing: 0.02em; }
+  .mcell-disc { font-family: 'Manrope', sans-serif; font-size: 11px; font-weight: 600; padding: 3px 7px; border-radius: 4px; background: var(--panel-raised); color: var(--text-dim); }
+  .mcell-disc-WS { background: var(--disc-ws-bg); color: var(--disc-ws-fg); }
+  .mcell-disc-MP { background: var(--disc-mp-bg); color: var(--disc-mp-fg); }
+  .mcell-disc-MS { background: var(--disc-ms-bg); color: var(--disc-ms-fg); }
+  .mcell-disc-WP { background: var(--disc-wp-bg); color: var(--disc-wp-fg); }
+  .mcell-disc-PXP, .mcell-disc-PMP, .mcell-disc-PWP { background: var(--disc-para-bg); color: var(--disc-para-fg); }
+  .mcell-teams { display: inline-flex; align-items: center; gap: 4px; }
+  .mcell-label { font-style: italic; color: var(--standby); font-weight: 600; }
+
+  .back-btn { display: inline-flex; align-items: center; gap: 4px; background: none; border: none; color: var(--text-dim); font-size: 13px; margin-bottom: 16px; padding: 0; }
+  .back-btn:hover { color: var(--text); }
+
+  .status-btns { display: flex; gap: 8px; margin-bottom: 16px; }
+  .status-btn { background: var(--panel); border: 1px solid var(--line); color: var(--text-dim); font-size: 12px; padding: 7px 12px; border-radius: 6px; }
+  .status-btn-active { background: var(--carpet); border-color: var(--carpet-light); color: var(--text); }
+
+  .slot-picker { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .slot-picker select { font-family: 'IBM Plex Mono', monospace; font-size: 12px; background: var(--panel); border: 1px solid var(--line); color: var(--text); padding: 6px 10px; border-radius: 6px; }
+
+  .broadcast-frame { position: relative; background: #05070A; border-radius: 8px; overflow: hidden; aspect-ratio: 16/9; max-width: 640px; border: 1px solid var(--line); }
+  .broadcast-feed { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--text-faint); font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.1em; background: repeating-linear-gradient(135deg, #0B0F14, #0B0F14 10px, #0D1218 10px, #0D1218 20px); }
+  .overlay-bug { position: absolute; left: 16px; bottom: 16px; background: rgba(8,12,16,0.86); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; padding: 10px 14px; min-width: 220px; backdrop-filter: blur(2px); }
+  .overlay-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+  .overlay-name { flex: 1; font-size: 13px; }
+  .overlay-score { font-family: 'Oswald', sans-serif; font-size: 20px; }
+  .overlay-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 6px; font-family: 'IBM Plex Mono', monospace; font-size: 9px; letter-spacing: 0.08em; color: var(--text-faint); }
+
+  .venue-only-note { display: flex; align-items: center; gap: 8px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; font-size: 12px; color: var(--text-dim); max-width: 640px; }
+
+  .detail-panels { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 18px; max-width: 800px; }
+  @media (max-width: 720px) { .detail-panels { grid-template-columns: 1fr; } }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px; }
+  .panel-title { font-family: 'Oswald', sans-serif; font-size: 14px; text-transform: uppercase; letter-spacing: 0.03em; margin-bottom: 12px; }
+  .panel-note { display: flex; align-items: flex-start; gap: 6px; font-size: 11px; color: var(--text-faint); margin-top: 10px; line-height: 1.5; }
+
+  .score-editor-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .score-editor-row .team-name { flex: 1; font-size: 13px; }
+  .stepper { display: flex; align-items: center; gap: 8px; }
+  .stepper button { background: var(--panel-raised); border: 1px solid var(--line); color: var(--text); border-radius: 4px; width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; font-size: 15px; line-height: 1; }
+  .stepper-val { font-family: 'Oswald', sans-serif; font-size: 18px; width: 24px; text-align: center; }
+
+  .notes { width: 100%; background: var(--panel-raised); border: 1px solid var(--line); border-radius: 6px; color: var(--text); font-family: 'Manrope', sans-serif; font-size: 13px; padding: 10px; resize: vertical; }
+  .notes::placeholder { color: var(--text-faint); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead th { text-align: left; font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.08em; color: var(--text-faint); padding: 8px 10px; border-bottom: 1px solid var(--line); }
+  tbody td { padding: 9px 10px; border-bottom: 1px solid var(--line); color: var(--text-dim); }
+  .td-nation { display: flex; align-items: center; gap: 8px; color: var(--text); }
+  .td-pts { font-family: 'Oswald', sans-serif; color: var(--text); font-size: 15px; }
+  .row-lead td { background: rgba(27,81,112,0.12); }
+
+  .rundown-block { margin-bottom: 26px; }
+  .rundown-block-title { font-family: 'Oswald', sans-serif; font-size: 16px; text-transform: uppercase; letter-spacing: 0.02em; }
+  .rundown-block-sub { font-size: 12px; color: var(--text-dim); margin-bottom: 10px; }
+  .rundown-row { display: grid; grid-template-columns: 68px 56px 1fr 110px; gap: 12px; padding: 9px 6px; border-bottom: 1px solid var(--line); align-items: center; font-size: 15px; }
+  .rundown-t { font-family: 'IBM Plex Mono', monospace; font-weight: 700; font-size: 14px; color: var(--carpet-light); }
+  .rundown-dur { font-family: 'IBM Plex Mono', monospace; color: var(--text-dim); font-size: 13px; }
+  .rundown-content { color: var(--text); }
+  .rundown-gfx { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--text); background: var(--panel-raised); border: 1px solid var(--line); padding: 4px 8px; border-radius: 4px; text-align: center; cursor: help; }
+  @media (max-width: 640px) { .rundown-row { grid-template-columns: 1fr 1fr; row-gap: 4px; } .rundown-content { grid-column: 1 / -1; } }
+
+  .sync-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+  @media (max-width: 720px) { .sync-grid { grid-template-columns: 1fr; } }
+  .sync-card svg { color: var(--carpet-light); margin-bottom: 8px; }
+  .ghost-btn { margin-top: 12px; background: transparent; border: 1px dashed var(--line); color: var(--text-faint); font-size: 12px; padding: 8px 12px; border-radius: 6px; width: 100%; }
+  code.inline { background: var(--panel-raised); padding: 1px 5px; border-radius: 3px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script>
+  // ---- Firebase config — optional -----------------------------------
+  // Leave apiKey blank to run entirely on this device with no setup at all.
+  // When you want another device to see the same live scores, paste your
+  // real Firebase Web config here (Firebase console -> Project settings ->
+  // General -> Your apps) and reload — no other code changes needed.
+  const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyAygLr_bwBWvujWYABYKhLE53BozrBr4nw",
+  authDomain: "bowls-b6ed9.firebaseapp.com",
+  projectId: "bowls-b6ed9",
+  storageBucket: "bowls-b6ed9.firebasestorage.app",
+  messagingSenderId: "134777754688",
+  appId: "1:134777754688:web:b4ef46d551a08fffdcfba5"
+};
+  const FIREBASE_ENABLED = !!FIREBASE_CONFIG.apiKey;
+  let db = null;
+  if (FIREBASE_ENABLED) {
+    firebase.initializeApp(FIREBASE_CONFIG);
+    db = firebase.firestore();
+    firebase.auth().signInAnonymously().catch((e) => console.error('Firebase sign-in failed:', e));
+  }
+</script>
+
+<script>
+const {
+  useState,
+  useEffect
+} = React;
+const NATIONS = {
+  ENG: {
+    name: 'England',
+    c: '#C8102E'
+  },
+  SCO: {
+    name: 'Scotland',
+    c: '#1E4D8C'
+  },
+  WAL: {
+    name: 'Wales',
+    c: '#158B45'
+  },
+  NIR: {
+    name: 'N. Ireland',
+    c: '#E8B32C'
+  },
+  AUS: {
+    name: 'Australia',
+    c: '#127A3E'
+  },
+  NZL: {
+    name: 'New Zealand',
+    c: '#1A1A1A'
+  },
+  RSA: {
+    name: 'South Africa',
+    c: '#0C6A3E'
+  },
+  CAN: {
+    name: 'Canada',
+    c: '#D32222'
+  },
+  IND: {
+    name: 'India',
+    c: '#D9822B'
+  },
+  MAS: {
+    name: 'Malaysia',
+    c: '#1B2A6B'
+  },
+  KEN: {
+    name: 'Kenya',
+    c: '#A11515'
+  },
+  FIJ: {
+    name: 'Fiji',
+    c: '#4A9FBF'
+  },
+  TGA: {
+    name: 'Tonga',
+    c: '#B5121B'
+  },
+  NIU: {
+    name: 'Niue',
+    c: '#2E7D5B'
+  },
+  GGY: {
+    name: 'Guernsey',
+    c: '#2E6B8F'
+  },
+  IOM: {
+    name: 'Isle of Man',
+    c: '#8A1E1E'
+  },
+  ZAM: {
+    name: 'Zambia',
+    c: '#0A6B3C'
+  },
+  NAM: {
+    name: 'Namibia',
+    c: '#3468A6'
+  },
+  BOT: {
+    name: 'Botswana',
+    c: '#4E9BD1'
+  },
+  JER: {
+    name: 'Jersey',
+    c: '#B5121B'
+  },
+  PAK: {
+    name: 'Pakistan',
+    c: '#0E5A34'
+  },
+  SIN: {
+    name: 'Singapore',
+    c: '#C8102E'
+  },
+  MLT: {
+    name: 'Malta',
+    c: '#C8102E'
+  },
+  JAM: {
+    name: 'Jamaica',
+    c: '#0A7A3E'
+  },
+  FLK: {
+    name: 'Falkland Islands',
+    c: '#1E4D8C'
+  },
+  NFI: {
+    name: 'Norfolk Island',
+    c: '#2E7D5B'
+  },
+  COK: {
+    name: 'Cook Islands',
+    c: '#1B2A6B'
+  }
+};
+const DISCIPLINES = {
+  MS: "Men's Singles",
+  WS: "Women's Singles",
+  MP: "Men's Pairs",
+  WP: "Women's Pairs",
+  PXP: 'Para Mixed Pairs B2–3',
+  PMP: 'Para Men’s Pairs B6–8',
+  PWP: 'Para Women’s Pairs B6–8'
+};
+const COMMENTATORS = {
+  P: 'Paul',
+  B: 'Barry',
+  S: 'Sharyn',
+  CH: 'Charlie',
+  DJ: 'DJ',
+  DC: 'David C.'
+};
+const DAYS = [{
+  id: 0,
+  label: 'DAY 0',
+  date: '23 JUL'
+}, {
+  id: 1,
+  label: 'DAY 1',
+  date: '24 JUL'
+}, {
+  id: 2,
+  label: 'DAY 2',
+  date: '25 JUL'
+}, {
+  id: 3,
+  label: 'DAY 3',
+  date: '26 JUL'
+}, {
+  id: 4,
+  label: 'DAY 4',
+  date: '27 JUL'
+}, {
+  id: 5,
+  label: 'DAY 5',
+  date: '28 JUL'
+}, {
+  id: 6,
+  label: 'DAY 6',
+  date: '29 JUL'
+}, {
+  id: 7,
+  label: 'DAY 7',
+  date: '30 JUL'
+}, {
+  id: 8,
+  label: 'DAY 8',
+  date: '31 JUL'
+}, {
+  id: 9,
+  label: 'DAY 9',
+  date: '01 AUG'
+}, {
+  id: 10,
+  label: 'DAY 10',
+  date: '02 AUG'
+}];
+
+// Real match schedule + commentator rota (as at 20/07/26). TV Rinks 1 & 4 only.
+const SCHEDULE = [{
+  "date": "23 JUL",
+  "label": "Day 0",
+  "note": "AM session only",
+  "sessions": [{
+    "name": "AM Session",
+    "time": "09:30–16:25",
+    "rows": [{
+      "time": "09:30",
+      "tv1": "P&B",
+      "matches": [["MS", "NZL", "TGA"], ["MS", "NIR", "NIU"], ["WP", "GGY", "IOM"], ["WP", "AUS", "ZAM"]],
+      "tv4": "DC&S"
+    }, {
+      "time": "10:55",
+      "tv1": "P&DJ",
+      "matches": [["WP", "NIR", "SIN"], ["MS", "NAM", "BOT"], ["MS", "JER", "IOM"], ["MS", "AUS", "GGY"]],
+      "tv4": "DC&B"
+    }, {
+      "time": "12:20",
+      "tv1": "CH&B",
+      "matches": [["MS", "WAL", "PAK"], ["MS", "RSA", "SIN"], ["WP", "IND", "MLT"], ["WP", "ENG", "NAM"]],
+      "tv4": "P&S"
+    }, {
+      "time": "13:45",
+      "tv1": "DC&B",
+      "matches": [["MS", "SCO", "JAM"], ["MS", "CAN", "IND"], ["WP", "NZL", "KEN"], ["WP", "RSA", "TGA"]],
+      "tv4": "CH&DJ"
+    }, {
+      "time": "15:10",
+      "tv1": "DC&S",
+      "matches": [["WP", "WAL", "CAN"], ["WP", "FIJ", "BOT"], ["MS", "MAS", "FLK"], ["MS", "ENG", "FIJ"]],
+      "tv4": "CH&DJ"
+    }]
+  }]
+}, {
+  "date": "24 JUL",
+  "label": "Day 1",
+  "note": null,
+  "sessions": [{
+    "name": "AM Session",
+    "time": "08:30–14:15",
+    "rows": [{
+      "time": "08:30",
+      "tv1": "P&S",
+      "matches": [["WP", "MAS", "FLK"], ["WP", "NFI", "COK"], ["MS", "KEN", "MLT"], ["MS", "NIR", "NZL"]],
+      "tv4": "DC&B"
+    }, {
+      "time": "09:55",
+      "tv1": "P&DJ",
+      "matches": [["MS", "AUS", "NAM"], ["MS", "JER", "COK"], ["MS", "GGY", "BOT"], ["WP", "SCO", "JER"]],
+      "tv4": "DC&S"
+    }, {
+      "time": "11:20",
+      "tv1": "DC&S",
+      "matches": [["WP", "AUS", "GGY"], ["WP", "ZAM", "IOM"], ["MS", "RSA", "NFI"], ["WP", "NIR", "NIU"]],
+      "tv4": "CH&DJ"
+    }, {
+      "time": "12:45",
+      "tv1": "P&B",
+      "matches": [["PXP", "SCO", "RSA"], ["PXP", "ENG", "NZL"], ["MS", "NIU", "TGA"], ["PXP", "WAL", "AUS"]],
+      "tv4": "CH&DJ"
+    }]
+  }, {
+    "name": "PM Session",
+    "time": "15:00–22:10",
+    "rows": [{
+      "time": "15:00",
+      "tv1": "DC&S",
+      "matches": [["WP", "ENG", "TGA"], ["WP", "IND", "RSA"], ["WP", "MLT", "NAM"], ["MS", "NAM", "GGY"]],
+      "tv4": "CH&B"
+    }, {
+      "time": "16:25",
+      "tv1": "P&S",
+      "matches": [["MS", "SCO", "PAK"], ["MS", "FIJ", "JAM"], ["WP", "NZL", "BOT"], ["WP", "CAN", "KEN"]],
+      "tv4": "DC&B"
+    }, {
+      "time": "17:50",
+      "tv1": "DC&B",
+      "matches": [["MS", "ENG", "WAL"], ["MS", "MAS", "MLT"], ["MS", "CAN", "KEN"], ["MS", "IND", "FLK"]],
+      "tv4": "CH&DJ"
+    }, {
+      "time": "19:15",
+      "tv1": "P&S",
+      "matches": [["WP", "NFI", "SCO"], ["WP", "MAS", "JER"], ["WP", "COK", "FLK"], ["MS", "AUS", "BOT"]],
+      "tv4": "DC&B"
+    }, {
+      "time": "20:40",
+      "tv1": "CH&DJ",
+      "matches": [["PXP", "WAL", "ENG"], ["WP", "WAL", "FIJ"], ["PXP", "AUS", "RSA"], ["PXP", "SCO", "NZL"]],
+      "tv4": "P&B"
+    }]
+  }]
+}, {
+  "date": "25 JUL",
+  "label": "Day 2",
+  "note": null,
+  "sessions": [{
+    "name": "AM Session",
+    "time": "08:30–14:15",
+    "rows": [{
+      "time": "08:30",
+      "tv1": "DC&S",
+      "matches": [["MS", "NIR", "TGA"], ["WP", "NIU", "SIN"], ["MS", "COK", "IOM"], ["WP", "AUS", "IOM"]],
+      "tv4": "CH&DJ"
+    }, {
+      "time": "09:55",
+      "tv1": "DC&S",
+      "matches": [["WP", "GGY", "ZAM"], ["MS", "NZL", "NIU"], ["MS", "NFI", "SIN"], ["MS", "SCO", "FIJ"]],
+      "tv4": "P&B"
+    }, {
+      "time": "11:20",
+      "tv1": "DC&B",
+      "matches": [["WP", "ENG", "MLT"], ["WP", "IND", "TGA"], ["MS", "WAL", "JAM"], ["MS", "ENG", "PAK"]],
+      "tv4": "CH&DJ"
+    }, {
+      "time": "12:45",
+      "tv1": "CH&S",
+      "matches": [["WP", "RSA", "NAM"], ["PXP", "ENG", "RSA"], ["PXP", "WAL", "NZL"], ["PXP", "SCO", "AUS"]],
+      "tv4": "P&B"
+    }]
+  }, {
+    "name": "PM Session",
+    "time": "15:00–22:10",
+    "rows": [{
+      "time": "15:00",
+      "tv1": "P&DJ",
+      "matches": [["WP", "WAL", "BOT"], ["WP", "NZL", "CAN"], ["WP", "FIJ", "KEN"], ["MS", "MAS", "IND"]],
+      "tv4": "CH&S"
+    }, {
+      "time": "16:25",
+      "tv1": "DC&B",
+      "matches": [["MS", "CAN", "MLT"], ["MS", "KEN", "FLK"], ["WP", "MAS", "COK"], ["WP", "SCO", "FLK"]],
+      "tv4": "P&S"
+    }, {
+      "time": "17:50",
+      "tv1": "DC&B",
+      "matches": [["WP", "AUS", "SIN"], ["WP", "NIR", "IOM"], ["MS", "COK", "GGY"], ["WP", "NFI", "JER"]],
+      "tv4": "CH&DJ"
+    }, {
+      "time": "19:15",
+      "tv1": "P&B",
+      "matches": [["MS", "AUS", "IOM"], ["WP", "NIU", "ZAM"], ["MS", "JER", "BOT"], ["MS", "NIR", "SIN"]],
+      "tv4": "CH&DJ"
+    }, {
+      "time": "20:40",
+      "tv1": "DC&S",
+      "matches": [["PXP", "SCO", "ENG"], ["MS", "RSA", "TGA"], ["PXP", "AUS", "NZL"], ["PXP", "WAL", "RSA"]],
+      "tv4": "P&DJ"
+    }]
+  }]
+}, {
+  "date": "26 JUL",
+  "label": "Day 3",
+  "note": null,
+  "sessions": [{
+    "name": "AM Session",
+    "time": "08:30–14:00",
+    "rows": [{
+      "time": "08:30",
+      "tv1": "P&B",
+      "matches": [["WP", "MLT", "TGA"], ["MS", "NFI", "NIU"], ["WP", "IND", "NAM"], ["WP", "ENG", "RSA"]],
+      "tv4": "DC&S"
+    }, {
+      "time": "09:55",
+      "tv1": "P&DJ",
+      "matches": [["MS", "SCO", "WAL"], ["MS", "JER", "NAM"], ["WP", "SIN", "IOM"], ["WP", "AUS", "NIU"]],
+      "tv4": "DC&B"
+    }, {
+      "time": "11:20",
+      "tv1": "P&B",
+      "matches": [["MS", "AUS", "COK"], ["MS", "IOM", "BOT"], ["WP", "WAL", "KEN"], ["WP", "NIR", "GGY"]],
+      "tv4": "CH&DJ"
+    }, {
+      "time": "12:45",
+      "tv1": "CH&DJ",
+      "matches": [["WP", "NZL", "FIJ"], ["MS", "FIJ", "PAK"], ["WP", "CAN", "BOT"], ["MS", "ENG", "JAM"]],
+      "tv4": "DC&S"
+    }]
+  }, {
+    "name": "PM Session",
+    "time": "14:45–21:55",
+    "rows": [{
+      "time": "14:45",
+      "tv1": "P&B",
+      "matches": [["MS", "MAS", "KEN"], ["WP", "COK", "JER"], ["MS", "IND", "MLT"], ["MS", "NIR", "NFI"]],
+      "tv4": null
+    }, {
+      "time": "16:10",
+      "tv1": "P&DJ",
+      "matches": [["WP", "NFI", "FLK"], null, ["WP", "NAM", "TGA"], ["WP", "MAS", "SCO"]],
+      "tv4": "DC&S"
+    }, {
+      "time": "17:35",
+      "tv1": "DC&S",
+      "matches": [["WP", "ENG", "IND"], ["MS", "SIN", "TGA"], ["WP", "RSA", "MLT"], ["MS", "CAN", "FLK"]],
+      "tv4": "CH&DJ"
+    }, {
+      "time": "19:00",
+      "tv1": "DC&DJ",
+      "matches": [["WP", "NIR", "ZAM"], ["WP", "GGY", "SIN"], ["WP", "NIU", "IOM"], ["MS", "RSA", "NZL"]],
+      "tv4": "CH&S"
+    }, {
+      "time": "20:25",
+      "tv1": "DC&B",
+      "matches": [["PXP", "SCO", "WAL"], null, ["PXP", "ENG", "AUS"], ["PXP", "RSA", "NZL"]],
+      "tv4": "CH&S"
+    }]
+  }]
+}, {
+  "date": "27 JUL",
+  "label": "Day 4",
+  "note": "Semi-finals (PXP, MS, WP) in PM session",
+  "sessions": [{
+    "name": "AM Session",
+    "time": "08:30–14:00",
+    "rows": [{
+      "time": "08:30",
+      "tv1": "CH&DJ",
+      "matches": [["MS", "JER", "GGY"], ["MS", "NAM", "IOM"], ["MS", "COK", "BOT"], ["WP", "NZL", "WAL"]],
+      "tv4": "P&S"
+    }, {
+      "time": "09:55",
+      "tv1": "CH&DJ",
+      "matches": [["MS", "NZL", "SIN"], ["MS", "RSA", "NIU"], ["MS", "NFI", "TGA"], ["MS", "SCO", "ENG"]],
+      "tv4": "DC&B"
+    }, {
+      "time": "11:20",
+      "tv1": "P&S",
+      "matches": [["WP", "KEN", "BOT"], ["WP", "FIJ", "CAN"], null, ["MS", "WAL", "FIJ"]],
+      "tv4": "DC&B"
+    }, {
+      "time": "12:45",
+      "tv1": "P&DJ",
+      "matches": [["WP", "SCO", "COK"], ["WP", "FLK", "JER"], ["MS", "JAM", "PAK"], ["WP", "MAS", "NFI"]],
+      "tv4": "DC&S"
+    }]
+  }, {
+    "name": "PM Session",
+    "time": "14:45–21:55",
+    "rows": [{
+      "time": "14:45",
+      "tv1": "DC&S",
+      "matches": [["WP", "AUS", "NIR"], ["MS", "MAS", "CAN"], ["WP", "GGY", "NIU"], ["MS", "GGY", "IOM"]],
+      "tv4": "CH&B"
+    }, {
+      "time": "16:10",
+      "tv1": "CH&DJ",
+      "matches": [["MS", "NZL", "NFI"], ["WP", "ZAM", "SIN"], ["MS", "NIR", "RSA"], ["MS", "AUS", "JER"]],
+      "tv4": "P&B"
+    }, {
+      "time": "17:35",
+      "tv1": "CH&B",
+      "matches": [["MS", "NAM", "COK"], ["MS", "FLK", "MLT"], ["MS", "KEN", "IND"], ["MS", "NIU", "SIN"]],
+      "tv4": "P&DJ"
+    }, {
+      "time": "19:00",
+      "tv1": "CH&DJ",
+      "matches": [["PXP", null, "SEMI FINAL 1"], null, null, ["PXP", null, "SEMI FINAL 2"]],
+      "tv4": "P&B"
+    }, {
+      "time": "20:40",
+      "tv1": "P&B",
+      "matches": [["MS", null, "SEMI FINAL 1"], ["MS", null, "SEMI FINAL 2"], ["WP", null, "SEMI FINAL 1"], ["WP", null, "SEMI FINAL 2"]],
+      "tv4": "DC&S"
+    }]
+  }]
+}, {
+  "date": "28 JUL",
+  "label": "Day 5",
+  "note": "Medal matches: PXP, WP, MS — then PM sectional play begins for WS/MP/PMP/PWP",
+  "sessions": [{
+    "name": "AM Session — Medal Matches",
+    "time": "08:30–13:30",
+    "rows": [{
+      "time": "08:30",
+      "tv1": null,
+      "matches": [["PXP", null, "GOLD MEDAL MATCH"], null, null, ["PXP", null, "BRONZE MEDAL MATCH"]],
+      "tv4": null
+    }, {
+      "time": "10:10",
+      "tv1": null,
+      "matches": [["WP", null, "GOLD MEDAL MATCH"], null, null, ["WP", null, "BRONZE MEDAL MATCH"]],
+      "tv4": null
+    }, {
+      "time": "11:35",
+      "tv1": null,
+      "matches": [["MS", null, "GOLD MEDAL MATCH"], null, null, ["MS", null, "BRONZE MEDAL MATCH"]],
+      "tv4": null
+    }, {
+      "time": "13:00",
+      "tv1": null,
+      "matches": [["—", null, "MEDAL CEREMONY"], null, null, null],
+      "tv4": null
+    }]
+  }, {
+    "name": "PM Session",
+    "time": "15:00–21:55",
+    "rows": [{
+      "time": "15:00",
+      "tv1": "DC&S",
+      "matches": [["WS", "AUS", "CAN"], ["WS", "COK", "MLT"], ["WS", "GGY", "NIU"], ["MP", "WAL", "NIU"]],
+      "tv4": "P&S"
+    }, {
+      "time": "16:25",
+      "tv1": "P&B",
+      "matches": [["MP", "JER", "GGY"], ["MP", "MAS", "MLT"], ["WS", "ENG", "JER"], ["WS", "NZL", "SIN"]],
+      "tv4": "CH&DJ"
+    }, {
+      "time": "17:50",
+      "tv1": "P&DJ",
+      "matches": [["WS", "NIR", "BOT"], ["MP", "NAM", "BOT"], ["MP", "IND", "COK"], ["WS", "MAS", "IOM"]],
+      "tv4": "DC&S"
+    }, {
+      "time": "19:15",
+      "tv1": "DC",
+      "matches": [["PMP", "AUS", "NZL"], ["PMP", "SCO", "RSA"], ["PMP", "ENG", "SIN"], ["MP", "ENG", "FLK"]],
+      "tv4": "CH&S"
+    }, {
+      "time": "20:40",
+      "tv1": "P",
+      "matches": [["PWP", "SCO", "MAS"], ["PWP", "AUS", "NZL"], ["PWP", "ENG", "CAN"], ["WS", "WAL", "IND"]],
+      "tv4": "CH&S"
+    }]
+  }]
+}, {
+  "date": "29 JUL",
+  "label": "Day 6",
+  "note": null,
+  "sessions": [{
+    "name": "AM Session",
+    "time": "08:30–14:00",
+    "rows": [{
+      "time": "08:30",
+      "tv1": "DC&B",
+      "matches": [["WS", "RSA", "ZAM"], ["WS", "NFI", "TGA"], ["WS", "KEN", "NAM"], ["MP", "NIR", "TGA"]],
+      "tv4": "CH&DJ"
+    }, {
+      "time": "09:55",
+      "tv1": "P&B",
+      "matches": [["MP", "SCO", "KEN"], ["MP", "FIJ", "NZL"], ["MP", "CAN", "IOM"], ["MP", "RSA", "NFI"]],
+      "tv4": "CH&DJ"
+    }, {
+      "time": "11:20",
+      "tv1": "P&S",
+      "matches": [["WS", "SCO", "FIJ"], ["WS", "COK", "FLK"], ["WS", "CAN", "JER"], ["MP", "AUS", "PAK"]],
+      "tv4": "DC&B"
+    }, {
+      "time": "12:45",
+      "tv1": "DC&S",
+      "matches": [["WS", "AUS", "ENG"], ["PMP", "AUS", "ENG"], ["PMP", "NZL", "RSA"], ["PMP", "SCO", "SIN"]],
+      "tv4": "P&DJ"
+    }]
+  }, {
+    "name": "PM Session",
+    "time": "15:00–21:55",
+    "rows": [{
+      "time": "15:00",
+      "tv1": "DC&S",
+      "matches": [["MP", "WAL", "MLT"], ["MP", "JER", "MAS"], ["MP", "GGY", "NIU"], ["MP", "ENG", "BOT"]],
+      "tv4": "CH&B"
+    }, {
+      "time": "16:25",
+      "tv1": "DC&S",
+      "matches": [["WS", "NZL", "NIR"], ["WS", "GGY", "BOT"], ["WS", "SIN", "NIU"], ["MP", "IND", "NAM"]],
+      "tv4": "CH&B"
+    }, {
+      "time": "17:50",
+      "tv1": "CH&B",
+      "matches": [["PWP", "AUS", "ENG"], ["PWP", "SCO", "CAN"], ["PWP", "NZL", "MAS"], ["WS", "WAL", "RSA"]],
+      "tv4": "P&DJ"
+    }, {
+      "time": "19:15",
+      "tv1": "DC&S",
+      "matches": [["WS", "MAS", "ZAM"], ["MP", "COK", "FLK"], ["WS", "NFI", "NAM"], ["MP", "SCO", "IOM"]],
+      "tv4": "P&DJ"
+    }, {
+      "time": "20:40",
+      "tv1": "CH&DJ",
+      "matches": [["MP", "RSA", "CAN"], ["MP", "NFI", "KEN"], ["WS", "IND", "IOM"], ["WS", "SCO", "KEN"]],
+      "tv4": "P&S"
+    }]
+  }]
+}, {
+  "date": "30 JUL",
+  "label": "Day 7",
+  "note": "Two PM blocks as published in the source rota (session numbers repeat/overlap — flagged for the producer to confirm)",
+  "sessions": [{
+    "name": "AM Session",
+    "time": "08:30–14:00",
+    "rows": [{
+      "time": "08:30",
+      "tv1": "P&DJ",
+      "matches": [["PMP", "SCO", "NZL"], ["WS", "FIJ", "TGA"], ["PMP", "AUS", "SIN"], ["PMP", "ENG", "RSA"]],
+      "tv4": "CH&B"
+    }, {
+      "time": "09:55",
+      "tv1": "P&DJ",
+      "matches": [["MP", "NIR", "PAK"], ["WS", "AUS", "JER"], ["WS", "FLK", "MLT"], ["WS", "ENG", "CAN"]],
+      "tv4": "DC&SIAN"
+    }, {
+      "time": "11:20",
+      "tv1": "CH&DJ",
+      "matches": [["MP", "FIJ", "AUS"], ["MP", "NZL", "TGA"], ["MP", "JER", "MLT"], ["MP", "WAL", "GGY"]],
+      "tv4": "DC&SIAN"
+    }, {
+      "time": "12:45",
+      "tv1": "P&B",
+      "matches": [["MP", "MAS", "NIU"], ["MP", "SCO", "NFI"], ["WS", "GGY", "SIN"], ["WS", "NZL", "BOT"]],
+      "tv4": "DC&SIAN"
+    }]
+  }, {
+    "name": "PM Session (block A)",
+    "time": "15:00–21:55",
+    "rows": [{
+      "time": "15:00",
+      "tv1": "DC&S",
+      "matches": [["MP", "RSA", "IOM"], ["MP", "IND", "BOT"], ["MP", "NAM", "FLK"], ["WS", "NIR", "NIU"]],
+      "tv4": "P&SIAN"
+    }, {
+      "time": "16:25",
+      "tv1": "P&B",
+      "matches": [["WS", "AUS", "MLT"], ["MP", "ENG", "COK"], ["MP", "CAN", "KEN"], ["WS", "MAS", "IND"]],
+      "tv4": "DC&S"
+    }, {
+      "time": "17:50",
+      "tv1": "DJ&B",
+      "matches": [["WS", "NFI", "FIJ"], ["MP", "RSA", "IOM"], ["WS", "KEN", "TGA"], ["WS", "SCO", "NAM"]],
+      "tv4": "DC&B"
+    }, {
+      "time": "19:15",
+      "tv1": "DC&B",
+      "matches": [["MP", "NIR", "NZL"], ["WS", "FLK", "CAN"], ["WS", "WAL", "ZAM"], ["WS", "COK", "JER"]],
+      "tv4": "CH&S"
+    }, {
+      "time": "20:40",
+      "tv1": "DJ&B",
+      "matches": [["MP", "FIJ", "PAK"], ["PWP", "ENG", "MAS"], ["PWP", "AUS", "CAN"], ["PWP", "SCO", "NZL"]],
+      "tv4": null
+    }]
+  }]
+}, {
+  "date": "31 JUL",
+  "label": "Day 8",
+  "note": null,
+  "sessions": [{
+    "name": "AM Session",
+    "time": "08:30–14:00",
+    "rows": [{
+      "time": "08:30",
+      "tv1": "P&B",
+      "matches": [["MP", "AUS", "TGA"], ["MP", "GGY", "MLT"], ["WS", "NZL", "NIU"], ["WS", "COK", "ENG"]],
+      "tv4": "DC&S"
+    }, {
+      "time": "09:55",
+      "tv1": "P&DJ",
+      "matches": [["PMP", "SCO", "ENG"], ["PMP", "AUS", "RSA"], ["PMP", "NZL", "SIN"], ["MP", "WAL", "MAS"]],
+      "tv4": "DC&B"
+    }, {
+      "time": "11:20",
+      "tv1": "CH&DJ",
+      "matches": [["MP", "ENG", "NAM"], ["WS", "SIN", "BOT"], ["WS", "MLT", "JER"], ["WS", "AUS", "FLK"]],
+      "tv4": "DC&S"
+    }, {
+      "time": "12:45",
+      "tv1": "CH&DJ",
+      "matches": [["WS", "GGY", "NIR"], ["MP", "JER", "NIU"], ["MP", "IND", "FLK"], ["MP", "COK", "BOT"]],
+      "tv4": "P&B"
+    }]
+  }, {
+    "name": "PM Session",
+    "time": "15:00–21:55",
+    "rows": [{
+      "time": "15:00",
+      "tv1": "P&DJ",
+      "matches": [["PWP", "SCO", "ENG"], ["PWP", "AUS", "MAS"], ["PWP", "NZL", "CAN"], ["WS", "WAL", "IOM"]],
+      "tv4": "CH&B"
+    }, {
+      "time": "16:25",
+      "tv1": "DC&S",
+      "matches": [["WS", "MAS", "RSA"], ["WS", "FIJ", "NAM"], ["MP", "RSA", "KEN"], ["MP", "SCO", "CAN"]],
+      "tv4": "P&S"
+    }, {
+      "time": "17:50",
+      "tv1": "P&S",
+      "matches": [["WS", "SCO", "TGA"], ["WS", "NFI", "KEN"], ["WS", "IND", "ZAM"], ["MP", "NFI", "IOM"]],
+      "tv4": "CH&DJ"
+    }, {
+      "time": "19:15",
+      "tv1": "CH&S",
+      "matches": [["WS", "ENG", "MLT"], ["MP", "FIJ", "TGA"], ["MP", "NZL", "PAK"], ["MP", "NIR", "AUS"]],
+      "tv4": "DC&B"
+    }, {
+      "time": "20:40",
+      "tv1": "DC&S",
+      "matches": [["WS", "GGY", "NZL"], ["WS", "FLK", "JER"], ["WS", "COK", "CAN"], ["WS", "NIR", "SIN"]],
+      "tv4": "DJ&B"
+    }]
+  }]
+}, {
+  "date": "01 AUG",
+  "label": "Day 9",
+  "note": "Semi-finals (MP, PMP, WS, PWP) in PM session",
+  "sessions": [{
+    "name": "AM Session",
+    "time": "08:30–14:00",
+    "rows": [{
+      "time": "08:30",
+      "tv1": "DC&B",
+      "matches": [["MP", "WAL", "JER"], ["WS", "NIU", "BOT"], ["MP", "NAM", "COK"], ["MP", "MAS", "GGY"]],
+      "tv4": "CH&S"
+    }, {
+      "time": "09:55",
+      "tv1": "DC&S",
+      "matches": [["MP", "AUS", "NZL"], ["MP", "NIU", "MLT"], ["MP", "FLK", "BOT"], ["MP", "SCO", "RSA"]],
+      "tv4": "P&B"
+    }, {
+      "time": "11:20",
+      "tv1": "CH&DJ",
+      "matches": [["MP", "ENG", "IND"], ["MP", "KEN", "IOM"], ["MP", "NIR", "FIJ"], ["WS", "AUS", "COK"]],
+      "tv4": "P&B"
+    }, {
+      "time": "12:45",
+      "tv1": "CH&DJ",
+      "matches": [["MP", "CAN", "NFI"], ["PMP", "RSA", "SIN"], ["PMP", "ENG", "NZL"], ["PMP", "SCO", "AUS"]],
+      "tv4": "P&B"
+    }]
+  }, {
+    "name": "PM Session",
+    "time": "15:00–21:55",
+    "rows": [{
+      "time": "15:00",
+      "tv1": "P&B",
+      "matches": [["PWP", "SCO", "AUS"], ["MP", "TGA", "PAK"], ["PWP", "ENG", "NZL"], ["PWP", "MAS", "CAN"]],
+      "tv4": "CH&DJ"
+    }, {
+      "time": "16:25",
+      "tv1": "DC&S",
+      "matches": [["WS", "MAS", "WAL"], ["WS", "CAN", "MLT"], ["WS", "ENG", "FLK"], ["WS", "NFI", "SCO"]],
+      "tv4": "P&DJ"
+    }, {
+      "time": "17:50",
+      "tv1": "DC&S",
+      "matches": [["WS", "TGA", "NAM"], ["WS", "IOM", "ZAM"], ["WS", "KEN", "FIJ"], ["WS", "RSA", "IND"]],
+      "tv4": "CH&DJ"
+    }, {
+      "time": "19:15",
+      "tv1": "P&B",
+      "matches": [["MP", null, "SEMI FINAL 1"], ["MP", null, "SEMI FINAL 2"], ["PMP", null, "SEMI FINAL 2"], ["PMP", null, "SEMI FINAL 1"]],
+      "tv4": "DC&S"
+    }, {
+      "time": "20:40",
+      "tv1": "DC&S",
+      "matches": [["WS", null, "SEMI FINAL 1"], ["WS", null, "SEMI FINAL 2"], ["PWP", null, "SEMI FINAL 2"], ["PWP", null, "SEMI FINAL 1"]],
+      "tv4": "CH&DJ"
+    }]
+  }]
+}, {
+  "date": "02 AUG",
+  "label": "Day 10",
+  "note": "Medal day — MP, PWP, PMP, WS",
+  "sessions": [{
+    "name": "AM Session — Medal Matches",
+    "time": "09:00–15:15",
+    "rows": [{
+      "time": "09:00",
+      "tv1": null,
+      "matches": [["MP", null, "GOLD MEDAL MATCH"], null, null, ["MP", null, "BRONZE MEDAL MATCH"]],
+      "tv4": null
+    }, {
+      "time": "10:25",
+      "tv1": null,
+      "matches": [["PWP", null, "GOLD MEDAL MATCH"], null, null, ["PWP", null, "BRONZE MEDAL MATCH"]],
+      "tv4": null
+    }, {
+      "time": "11:50",
+      "tv1": null,
+      "matches": [["PMP", null, "GOLD MEDAL MATCH"], null, null, ["PMP", null, "BRONZE MEDAL MATCH"]],
+      "tv4": null
+    }, {
+      "time": "13:15",
+      "tv1": null,
+      "matches": [["WS", null, "GOLD MEDAL MATCH"], null, null, ["WS", null, "BRONZE MEDAL MATCH"]],
+      "tv4": null
+    }, {
+      "time": "14:40",
+      "tv1": null,
+      "matches": [["—", null, "MEDAL CEREMONIES"], null, null, null],
+      "tv4": null
+    }]
+  }]
+}];
+const RUNDOWN = [{
+  key: 'preroll',
+  label: 'Run-up — start of session',
+  sub: 'From −10:00 (first match of the session only)',
+  rows: [['−10:00', '0:10', 'Host broadcaster caption', '-'], ['–9:50', '0:30', 'Glasgow2026 opener — WORLD FEED ON-AIR', '-'], ['–9:20', '0:10', 'SEC venue locator', '-'], ['–9:10', '0:20', 'City vignette', '-'], ['–8:50', '0:15', 'Venue wide + GFX: Sport (WF commentary starts)', 'LBO01-001'], ['–8:35', '0:30', 'Atmosphere & crowd shots', '-'], ['–8:05', '1:00', 'Venue wide + GFX: Session schedule by rink', 'LBO01-005'], ['–7:05', '0:15', 'Venue wide + GFX: Event', 'LBO01-003'], ['–6:50', '1:00', 'Atmosphere & crowd shots', '-'], ['–5:50', '1:00', 'Venue wide + GFX: Sectional list/table', 'LBO01-007'], ['–4:50', '1:45', 'Trial ends, atmosphere & crowd shots', 'LBO01-006'], ['–3:05', '0:15', 'Venue wide', '-'], ['–2:50', '0:15', 'Venue wide + GFX: Match caption (clean WF commentary in)', 'LBO01-008'], ['–2:35', '1:00', 'Red player/pair + GFX: Red ID', 'LBO01-009/010'], ['–1:35', '1:00', 'Blue player/pair + GFX: Blue ID', 'LBO01-009/010'], ['–0:45', '0:45', 'Players preparing', '-'], ['0:00', '-', 'Start of match (clean WF commentary in)', '-']]
+}, {
+  key: 'midrunup',
+  label: 'Run-up — later matches in the same session',
+  sub: 'From –5:30 (every match after the first)',
+  rows: [['–5:30', '0:30', 'Venue wide', '-'], ['–5:00', '0:15', 'Venue wide + GFX: Event (WF commentary starts)', 'LBO01-003'], ['–4:45', '1:00', 'Atmosphere & crowd shots', '-'], ['–3:45', '0:30', 'Venue wide + GFX: Sectional list/table', 'LBO01-007'], ['–3:15', '0:15', 'Trial ends, atmosphere & crowd shots', '-'], ['–3:00', '0:15', 'Venue wide + GFX: Match caption (clean WF commentary in)', 'LBO01-008'], ['–2:45', '1:00', 'Red player/pair + GFX: Red ID', 'LBO01-009/010'], ['–1:45', '1:00', 'Blue player/pair + GFX: Blue ID', 'LBO01-009/010'], ['–0:45', '0:45', 'Players preparing', '-'], ['0:00', '-', 'Start of match (clean WF commentary in)', '-']]
+}, {
+  key: 'midrundown',
+  label: 'Run-down — after each match (not the last)',
+  sub: 'From match end — leads into the next run-up',
+  rows: [['0:00', '0:15', 'Player reactions', '-'], ['0:15', '0:15', 'Player reactions + GFX: Match winner', 'LBO01-013'], ['0:30', '0:15', 'Player reactions & crowd shots', '-'], ['0:45', '0:15', 'Venue wide + GFX: Result (clean WF commentary out)', 'LBO01-012'], ['1:00', '1:00', 'Match montage', '-'], ['2:00', '0:30', 'Venue wide + GFX: Sectional table', 'LBO01-007'], ['2:30', '0:30', 'Venue wide (WF commentary ends)', '-'], ['3:00', '-', 'Venue wide + GFX: Next match', '-']]
+}, {
+  key: 'endrundown',
+  label: 'Run-down — end of session (last match)',
+  sub: 'From match end — closes the session',
+  rows: [['0:00', '0:15', 'Player reactions', '-'], ['0:15', '0:15', 'Player reactions + GFX: Match winner', 'LBO01-013'], ['0:30', '0:15', 'Player reactions & crowd shots', '-'], ['0:45', '0:15', 'Venue wide + GFX: Result (clean WF commentary out)', 'LBO01-012'], ['1:00', '1:00', 'Match montage', '-'], ['2:00', '0:30', 'Venue wide + GFX: Sectional table', 'LBO01-007'], ['2:30', '0:30', 'Venue wide + GFX: Next session schedule by rink', 'LBO01-005'], ['3:00', '0:30', 'Crowd shots (WF commentary ends)', '-'], ['3:30', '1:00', 'Closer — best of the session', '-'], ['4:30', '0:30', 'Glasgow2026 opener', '-'], ['5:00', '0:10', 'Host broadcaster caption — END', '-']]
+}];
+const GFX_CODES = {
+  'LBO01-001': 'Sport ident / venue locator',
+  'LBO01-003': 'Event graphic (discipline name)',
+  'LBO01-005': 'Session schedule by rink',
+  'LBO01-006': 'Trial-ends / atmosphere cutaway',
+  'LBO01-007': 'Sectional standings table',
+  'LBO01-008': 'Match caption',
+  'LBO01-009/010': 'Player/pair ID (red or blue)',
+  'LBO01-012': 'Result graphic',
+  'LBO01-013': 'Match winner graphic'
+};
+const DEFAULT_MATCHES = [{
+  id: 'r1',
+  rink: 1,
+  isTV: true,
+  discipline: "Men's Pairs",
+  section: 'Section B',
+  a: 'ENG',
+  b: 'RSA',
+  status: 'live',
+  sets: [{
+    a: 9,
+    b: 5
+  }, {
+    a: 3,
+    b: 4
+  }],
+  currentSet: 1,
+  endsInSet: 8,
+  endsPlayed: 5
+}, {
+  id: 'r2',
+  rink: 2,
+  isTV: false,
+  discipline: "Women's Singles",
+  section: 'Section A',
+  a: 'SCO',
+  b: 'AUS',
+  status: 'live',
+  sets: [{
+    a: 11,
+    b: 8
+  }],
+  currentSet: 0,
+  endsInSet: 12,
+  endsPlayed: 9
+}, {
+  id: 'r3',
+  rink: 3,
+  isTV: false,
+  discipline: 'Para Mixed Pairs B2–3',
+  section: 'Section A',
+  a: 'NZL',
+  b: 'CAN',
+  status: 'upcoming',
+  sets: [],
+  currentSet: 0,
+  endsInSet: 8,
+  endsPlayed: 0,
+  startsIn: '14 min'
+}, {
+  id: 'r4',
+  rink: 4,
+  isTV: true,
+  discipline: "Women's Pairs",
+  section: 'Section C',
+  a: 'WAL',
+  b: 'KEN',
+  status: 'final',
+  sets: [{
+    a: 9,
+    b: 4
+  }, {
+    a: 7,
+    b: 3
+  }],
+  currentSet: 1,
+  endsInSet: 8,
+  endsPlayed: 8
+}];
+const standings = [{
+  code: 'SCO',
+  p: 5,
+  w: 5,
+  l: 0,
+  f: 61,
+  ag: 34,
+  pts: 10
+}, {
+  code: 'AUS',
+  p: 5,
+  w: 4,
+  l: 1,
+  f: 58,
+  ag: 40,
+  pts: 8
+}, {
+  code: 'RSA',
+  p: 5,
+  w: 3,
+  l: 2,
+  f: 49,
+  ag: 45,
+  pts: 6
+}, {
+  code: 'IND',
+  p: 5,
+  w: 2,
+  l: 3,
+  f: 40,
+  ag: 47,
+  pts: 4
+}, {
+  code: 'FIJ',
+  p: 5,
+  w: 1,
+  l: 4,
+  f: 33,
+  ag: 55,
+  pts: 2
+}, {
+  code: 'MAS',
+  p: 5,
+  w: 0,
+  l: 5,
+  f: 28,
+  ag: 58,
+  pts: 0
+}];
+
+// Local persistence when Firebase isn't configured — so a browser reload
+// on this one device doesn't lose score edits. This is intentionally the
+// only thing localStorage is used for; everything else is static.
+function loadLocalScores() {
+  try {
+    const raw = localStorage.getItem('bowls-scores');
+    return raw ? JSON.parse(raw) : {};
+  } catch (e) {
+    return {};
+  }
+}
+// The Gallery Wall's live tiles are generated from the real SCHEDULE for
+// whichever day/session/row the producer has selected as "on air" — not
+// from a fixed demo list. Rows where the teams aren't decided yet (semi
+// finals, medal matches shown as a label rather than two codes) are left
+// out of live tracking since there's nothing to score yet.
+function buildSlotMatches(dayId, si, ri) {
+  const day = SCHEDULE[dayId];
+  const session = day && day.sessions[si];
+  const row = session && session.rows[ri];
+  if (!row) return [];
+  const out = [];
+  row.matches.forEach((m, idx) => {
+    if (!m) return;
+    const [discCode, home, away] = m;
+    if (!home) return;
+    const rink = idx + 1;
+    out.push({
+      id: `d${dayId}-s${si}-r${ri}-k${rink}`,
+      rink,
+      isTV: idx === 0 || idx === 3,
+      discipline: DISCIPLINES[discCode] || discCode,
+      section: row.time,
+      a: home,
+      b: away
+    });
+  });
+  return out;
+}
+function defaultScoreState() {
+  return {
+    status: 'upcoming',
+    sets: [],
+    currentSet: 0,
+    endsInSet: 8,
+    endsPlayed: 0
+  };
+}
+const NAV = [{
+  id: 'wall',
+  label: 'Gallery Wall'
+}, {
+  id: 'schedule',
+  label: 'Schedule'
+}, {
+  id: 'rundown',
+  label: 'Rundown'
+}, {
+  id: 'standings',
+  label: 'Standings'
+}, {
+  id: 'sync',
+  label: 'Sync'
+}];
+function Flag({
+  code
+}) {
+  const n = NATIONS[code] || {
+    name: code,
+    c: '#555'
+  };
+  return /*#__PURE__*/React.createElement("span", {
+    className: "flag",
+    style: {
+      background: n.c
+    }
+  }, code);
+}
+function StatusTag({
+  status,
+  startsIn
+}) {
+  if (status === 'live') return /*#__PURE__*/React.createElement("span", {
+    className: "tag tag-live"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "dot-live"
+  }), "LIVE");
+  if (status === 'upcoming') return /*#__PURE__*/React.createElement("span", {
+    className: "tag tag-standby"
+  }, startsIn ? `IN ${startsIn}` : 'STANDBY');
+  return /*#__PURE__*/React.createElement("span", {
+    className: "tag tag-final"
+  }, "FT");
+}
+function ScoreLine({
+  match
+}) {
+  if (match.status === 'upcoming') return /*#__PURE__*/React.createElement("div", {
+    className: "scoreline scoreline-upcoming"
+  }, "— vs —");
+  return /*#__PURE__*/React.createElement("div", {
+    className: "scoreline"
+  }, match.sets.map((s, i) => /*#__PURE__*/React.createElement("span", {
+    key: i,
+    className: 'set ' + (i === match.currentSet && match.status === 'live' ? 'set-current' : '')
+  }, s.a, '–', s.b)));
+}
+function EndPips({
+  played,
+  total
+}) {
+  return /*#__PURE__*/React.createElement("div", {
+    className: "pips"
+  }, Array.from({
+    length: total
+  }).map((_, i) => /*#__PURE__*/React.createElement("span", {
+    key: i,
+    className: 'pip ' + (i < played ? 'pip-done' : '')
+  })));
+}
+function RinkTile({
+  match,
+  onOpen,
+  compact
+}) {
+  if (compact) {
+    return /*#__PURE__*/React.createElement("button", {
+      className: "tile-compact",
+      onClick: () => onOpen(match.id)
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "tile-compact-rink"
+    }, "RINK ", match.rink), /*#__PURE__*/React.createElement("span", {
+      className: "tile-compact-teams"
+    }, /*#__PURE__*/React.createElement(Flag, {
+      code: match.a
+    }), match.a, " v ", match.b, /*#__PURE__*/React.createElement(Flag, {
+      code: match.b
+    })), /*#__PURE__*/React.createElement(StatusTag, {
+      status: match.status,
+      startsIn: match.startsIn
+    }));
+  }
+  return /*#__PURE__*/React.createElement("button", {
+    className: 'tile tile-' + match.status,
+    onClick: () => onOpen(match.id)
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "tile-top"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "tile-rink"
+  }, "RINK ", match.rink, " ", /*#__PURE__*/React.createElement("span", {
+    className: "tv-chip"
+  }, "WORLD FEED")), /*#__PURE__*/React.createElement(StatusTag, {
+    status: match.status,
+    startsIn: match.startsIn
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "tile-discipline"
+  }, match.discipline, " · ", match.section), /*#__PURE__*/React.createElement("div", {
+    className: "tile-teams"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "team-row"
+  }, /*#__PURE__*/React.createElement(Flag, {
+    code: match.a
+  }), /*#__PURE__*/React.createElement("span", {
+    className: "team-name"
+  }, NATIONS[match.a]?.name)), /*#__PURE__*/React.createElement("div", {
+    className: "team-row"
+  }, /*#__PURE__*/React.createElement(Flag, {
+    code: match.b
+  }), /*#__PURE__*/React.createElement("span", {
+    className: "team-name"
+  }, NATIONS[match.b]?.name))), /*#__PURE__*/React.createElement(ScoreLine, {
+    match: match
+  }), match.status !== 'upcoming' && /*#__PURE__*/React.createElement(EndPips, {
+    played: match.endsPlayed,
+    total: match.endsInSet
+  }));
+}
+function MatchDetail({
+  match,
+  onBack,
+  onAdjust,
+  onSetStatus,
+  onNextSet
+}) {
+  if (!match) return null;
+  const set = match.sets[match.currentSet] || {
+    a: 0,
+    b: 0
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    className: "detail"
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "back-btn",
+    onClick: onBack
+  }, "← Gallery Wall"), /*#__PURE__*/React.createElement("div", {
+    className: "status-btns"
+  }, /*#__PURE__*/React.createElement("button", {
+    className: 'status-btn ' + (match.status === 'upcoming' ? 'status-btn-active' : ''),
+    onClick: () => onSetStatus(match.id, 'upcoming')
+  }, "Standby"), /*#__PURE__*/React.createElement("button", {
+    className: 'status-btn ' + (match.status === 'live' ? 'status-btn-active' : ''),
+    onClick: () => onSetStatus(match.id, 'live')
+  }, "Go live"), match.status === 'live' && /*#__PURE__*/React.createElement("button", {
+    className: "status-btn",
+    onClick: () => onNextSet(match.id)
+  }, "Next set"), /*#__PURE__*/React.createElement("button", {
+    className: 'status-btn ' + (match.status === 'final' ? 'status-btn-active' : ''),
+    onClick: () => onSetStatus(match.id, 'final')
+  }, "Mark final")), match.isTV ? /*#__PURE__*/React.createElement("div", {
+    className: "broadcast-frame"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "broadcast-feed"
+  }, "CAMERA ", match.rink, " · RINK ", match.rink, " FEED"), /*#__PURE__*/React.createElement("div", {
+    className: "overlay-bug"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "overlay-row"
+  }, /*#__PURE__*/React.createElement(Flag, {
+    code: match.a
+  }), /*#__PURE__*/React.createElement("span", {
+    className: "overlay-name"
+  }, NATIONS[match.a]?.name), /*#__PURE__*/React.createElement("span", {
+    className: "overlay-score"
+  }, set.a)), /*#__PURE__*/React.createElement("div", {
+    className: "overlay-row"
+  }, /*#__PURE__*/React.createElement(Flag, {
+    code: match.b
+  }), /*#__PURE__*/React.createElement("span", {
+    className: "overlay-name"
+  }, NATIONS[match.b]?.name), /*#__PURE__*/React.createElement("span", {
+    className: "overlay-score"
+  }, set.b)), /*#__PURE__*/React.createElement("div", {
+    className: "overlay-foot"
+  }, /*#__PURE__*/React.createElement("span", null, match.discipline.toUpperCase()), /*#__PURE__*/React.createElement(StatusTag, {
+    status: match.status,
+    startsIn: match.startsIn
+  })))) : /*#__PURE__*/React.createElement("div", {
+    className: "venue-only-note"
+  }, "Rink ", match.rink, " isn't on the world feed — in-venue only, no broadcast graphics for this match."), /*#__PURE__*/React.createElement("div", {
+    className: "detail-panels"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "panel"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "panel-title"
+  }, "Set score — Set ", match.currentSet + 1), /*#__PURE__*/React.createElement("div", {
+    className: "score-editor"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "score-editor-row"
+  }, /*#__PURE__*/React.createElement(Flag, {
+    code: match.a
+  }), /*#__PURE__*/React.createElement("span", {
+    className: "team-name"
+  }, NATIONS[match.a]?.name), /*#__PURE__*/React.createElement("div", {
+    className: "stepper"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => onAdjust(match.id, 'a', -1)
+  }, "−"), /*#__PURE__*/React.createElement("span", {
+    className: "stepper-val"
+  }, set.a), /*#__PURE__*/React.createElement("button", {
+    onClick: () => onAdjust(match.id, 'a', 1)
+  }, "+"))), /*#__PURE__*/React.createElement("div", {
+    className: "score-editor-row"
+  }, /*#__PURE__*/React.createElement(Flag, {
+    code: match.b
+  }), /*#__PURE__*/React.createElement("span", {
+    className: "team-name"
+  }, NATIONS[match.b]?.name), /*#__PURE__*/React.createElement("div", {
+    className: "stepper"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => onAdjust(match.id, 'b', -1)
+  }, "−"), /*#__PURE__*/React.createElement("span", {
+    className: "stepper-val"
+  }, set.b), /*#__PURE__*/React.createElement("button", {
+    onClick: () => onAdjust(match.id, 'b', 1)
+  }, "+")))), /*#__PURE__*/React.createElement("div", {
+    className: "panel-note"
+  }, FIREBASE_ENABLED ? 'Synced to Firebase.' : 'Saved to this device only (localStorage) — turn on Firebase in the config block to sync across devices.')), /*#__PURE__*/React.createElement("div", {
+    className: "panel"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "panel-title"
+  }, "Producer notes"), /*#__PURE__*/React.createElement("textarea", {
+    className: "notes",
+    placeholder: "Ends of note, momentum shifts, graphics callouts...",
+    rows: 5
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "panel-note"
+  }, "Notes aren't saved yet — wire this up alongside the score sync whenever it's useful."))));
+}
+function Standings() {
+  return /*#__PURE__*/React.createElement("div", {
+    className: "view"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "view-header"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "eyebrow"
+  }, "WOMEN'S SINGLES · SECTION A · ILLUSTRATIVE"), /*#__PURE__*/React.createElement("h2", null, "Standings")), /*#__PURE__*/React.createElement("div", {
+    className: "table-wrap"
+  }, /*#__PURE__*/React.createElement("table", null, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", null, "Nation"), /*#__PURE__*/React.createElement("th", null, "P"), /*#__PURE__*/React.createElement("th", null, "W"), /*#__PURE__*/React.createElement("th", null, "L"), /*#__PURE__*/React.createElement("th", null, "For"), /*#__PURE__*/React.createElement("th", null, "Ag"), /*#__PURE__*/React.createElement("th", null, "Pts"))), /*#__PURE__*/React.createElement("tbody", null, standings.map((r, i) => /*#__PURE__*/React.createElement("tr", {
+    key: r.code,
+    className: i === 0 ? 'row-lead' : ''
+  }, /*#__PURE__*/React.createElement("td", {
+    className: "td-nation"
+  }, /*#__PURE__*/React.createElement(Flag, {
+    code: r.code
+  }), NATIONS[r.code]?.name), /*#__PURE__*/React.createElement("td", null, r.p), /*#__PURE__*/React.createElement("td", null, r.w), /*#__PURE__*/React.createElement("td", null, r.l), /*#__PURE__*/React.createElement("td", null, r.f), /*#__PURE__*/React.createElement("td", null, r.ag), /*#__PURE__*/React.createElement("td", {
+    className: "td-pts"
+  }, r.pts)))))), /*#__PURE__*/React.createElement("div", {
+    className: "panel-note",
+    style: {
+      marginTop: 12
+    }
+  }, "No results exist yet — competition starts 23 July. This table fills in once section play is under way."));
+}
+function MatchCell({
+  m,
+  tv,
+  code
+}) {
+  if (m === null) return /*#__PURE__*/React.createElement("div", {
+    className: "mcell mcell-empty"
+  }, "—");
+  const [disc, home, away] = m;
+  return /*#__PURE__*/React.createElement("div", {
+    className: 'mcell ' + (tv ? 'mcell-tv' : '')
+  }, tv && code && /*#__PURE__*/React.createElement("span", {
+    className: "mcell-commentator"
+  }, code.split('&').map(c => COMMENTATORS[c] || c).join(' + ')), /*#__PURE__*/React.createElement("span", {
+    className: 'mcell-disc mcell-disc-' + disc
+  }, disc), home ? /*#__PURE__*/React.createElement("span", {
+    className: "mcell-teams"
+  }, /*#__PURE__*/React.createElement(Flag, {
+    code: home
+  }), home, " v ", away, /*#__PURE__*/React.createElement(Flag, {
+    code: away
+  })) : /*#__PURE__*/React.createElement("span", {
+    className: "mcell-label"
+  }, away));
+}
+function Schedule({
+  dayId
+}) {
+  const day = SCHEDULE[dayId];
+  const [showLegend, setShowLegend] = useState(false);
+  return /*#__PURE__*/React.createElement("div", {
+    className: "view"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "view-header sched-header"
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    className: "eyebrow"
+  }, "SEC CENTRE HALL 3 · ", day.label, " · ", day.date), /*#__PURE__*/React.createElement("h2", null, "Schedule")), /*#__PURE__*/React.createElement("button", {
+    className: "legend-toggle",
+    onClick: () => setShowLegend(v => !v)
+  }, showLegend ? 'Hide' : 'Show', " legend")), day.note && /*#__PURE__*/React.createElement("div", {
+    className: "day-note"
+  }, day.note), showLegend && /*#__PURE__*/React.createElement("div", {
+    className: "legend-panel"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "legend-col"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "legend-title"
+  }, "Commentators"), Object.entries(COMMENTATORS).map(([k, v]) => /*#__PURE__*/React.createElement("div", {
+    className: "legend-row",
+    key: k
+  }, /*#__PURE__*/React.createElement("b", null, k), " ", v)), /*#__PURE__*/React.createElement("div", {
+    className: "legend-row legend-muted"
+  }, "Codes combine with & (e.g. P&B = Paul and Barry). A few later sessions use a code (\"SIAN\") not in the original legend — worth confirming with the production team.")), /*#__PURE__*/React.createElement("div", {
+    className: "legend-col"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "legend-title"
+  }, "Disciplines"), Object.entries(DISCIPLINES).map(([k, v]) => /*#__PURE__*/React.createElement("div", {
+    className: "legend-row",
+    key: k
+  }, /*#__PURE__*/React.createElement("b", null, k), " ", v))), /*#__PURE__*/React.createElement("div", {
+    className: "legend-col"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "legend-title"
+  }, "Rinks"), /*#__PURE__*/React.createElement("div", {
+    className: "legend-row"
+  }, /*#__PURE__*/React.createElement("b", null, "Rink 1 & 4"), " World feed — commentated, on the international broadcast"), /*#__PURE__*/React.createElement("div", {
+    className: "legend-row"
+  }, /*#__PURE__*/React.createElement("b", null, "Rink 2 & 3"), " In-venue only, not broadcast"))), day.sessions.map((s, si) => /*#__PURE__*/React.createElement("div", {
+    className: "session-block",
+    key: si
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "session-title"
+  }, s.name, " ", /*#__PURE__*/React.createElement("span", {
+    className: "session-time"
+  }, s.time)), /*#__PURE__*/React.createElement("div", {
+    className: "session-rowhead"
+  }, /*#__PURE__*/React.createElement("span", null, "TIME"), /*#__PURE__*/React.createElement("span", null, "RINK 1 ", /*#__PURE__*/React.createElement("em", null, "WORLD FEED")), /*#__PURE__*/React.createElement("span", null, "RINK 2"), /*#__PURE__*/React.createElement("span", null, "RINK 3"), /*#__PURE__*/React.createElement("span", null, "RINK 4 ", /*#__PURE__*/React.createElement("em", null, "WORLD FEED"))), s.rows.map((r, ri) => /*#__PURE__*/React.createElement("div", {
+    className: "session-row",
+    key: ri
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "session-row-time"
+  }, r.time), /*#__PURE__*/React.createElement(MatchCell, {
+    m: r.matches[0],
+    tv: true,
+    code: r.tv1
+  }), /*#__PURE__*/React.createElement(MatchCell, {
+    m: r.matches[1]
+  }), /*#__PURE__*/React.createElement(MatchCell, {
+    m: r.matches[2]
+  }), /*#__PURE__*/React.createElement(MatchCell, {
+    m: r.matches[3],
+    tv: true,
+    code: r.tv4
+  }))))));
+}
+function Rundown() {
+  return /*#__PURE__*/React.createElement("div", {
+    className: "view"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "view-header"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "eyebrow"
+  }, "FROM THE MRO WORKBOOK · ONE CANONICAL VERSION"), /*#__PURE__*/React.createElement("h2", null, "Broadcast Rundown")), /*#__PURE__*/React.createElement("div", {
+    className: "panel-note",
+    style: {
+      marginBottom: 16
+    }
+  }, "Every session sheet in the workbook repeats this same sequence with only the clock times shifting — this is that sequence once, in time-relative-to-match form."), RUNDOWN.map(block => /*#__PURE__*/React.createElement("div", {
+    className: "rundown-block",
+    key: block.key
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "rundown-block-title"
+  }, block.label), /*#__PURE__*/React.createElement("div", {
+    className: "rundown-block-sub"
+  }, block.sub), block.rows.map((row, i) => {
+    const [t, dur, content, gfx] = row;
+    return /*#__PURE__*/React.createElement("div", {
+      className: "rundown-row",
+      key: i
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "rundown-t"
+    }, t), /*#__PURE__*/React.createElement("span", {
+      className: "rundown-dur"
+    }, dur !== '-' ? dur : ''), /*#__PURE__*/React.createElement("span", {
+      className: "rundown-content"
+    }, content), gfx !== '-' ? /*#__PURE__*/React.createElement("span", {
+      className: "rundown-gfx",
+      title: GFX_CODES[gfx] || ''
+    }, gfx) : /*#__PURE__*/React.createElement("span", null));
+  }))), /*#__PURE__*/React.createElement("div", {
+    className: "panel-note"
+  }, "Graphic codes: ", Object.entries(GFX_CODES).map(([k, v]) => `${k} = ${v}`).join(' · ')));
+}
+function Sync() {
+  return /*#__PURE__*/React.createElement("div", {
+    className: "view"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "view-header"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "eyebrow"
+  }, "DATA SOURCE"), /*#__PURE__*/React.createElement("h2", null, "Sync")), /*#__PURE__*/React.createElement("div", {
+    className: "sync-grid"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "panel sync-card"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "panel-title"
+  }, "Firebase"), FIREBASE_ENABLED ? /*#__PURE__*/React.createElement("div", {
+    className: "panel-note"
+  }, "Connected — project ", /*#__PURE__*/React.createElement("code", {
+    className: "inline"
+  }, FIREBASE_CONFIG.projectId), ". Score edits sync live and will reach any other device open on this same page.") : /*#__PURE__*/React.createElement("div", {
+    className: "panel-note"
+  }, "Not configured. Right now this is a single-device tool — score edits save to this browser only (localStorage). Paste your Firebase Web config into the ", /*#__PURE__*/React.createElement("code", {
+    className: "inline"
+  }, "FIREBASE_CONFIG"), " block near the top of this HTML file whenever you want another device to see the same live scores. No other changes needed.")), /*#__PURE__*/React.createElement("div", {
+    className: "panel sync-card"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "panel-title"
+  }, "Live results pull"), /*#__PURE__*/React.createElement("div", {
+    className: "panel-note"
+  }, "Schedule and commentator rota are loaded straight into this file. Live scores still need a source once matches start — manual entry (this app) looks like the reliable path based on what's publicly available."))));
+}
+function App() {
+  const [view, setView] = useState('wall');
+  const [dayId, setDayId] = useState(0);
+  // Which session/row of that day's real schedule is "on air" right now —
+  // the producer steps through these manually as the session progresses.
+  const [si, setSi] = useState(0);
+  const [ri, setRi] = useState(0);
+  const [scores, setScores] = useState(() => FIREBASE_ENABLED ? {} : loadLocalScores());
+  const [openId, setOpenId] = useState(null);
+  // Theme: 'system' follows the OS/browser preference; 'light'/'dark' are explicit
+  // overrides the person picked, remembered across visits via localStorage.
+  const [themeMode, setThemeMode] = useState(() => {
+    try {
+      return localStorage.getItem('bowls-theme') || 'system';
+    } catch (e) {
+      return 'system';
+    }
+  });
+  const [systemPrefersLight, setSystemPrefersLight] = useState(() => window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches);
+  useEffect(() => {
+    if (!window.matchMedia) return;
+    const mq = window.matchMedia('(prefers-color-scheme: light)');
+    const handler = e => setSystemPrefersLight(e.matches);
+    mq.addEventListener ? mq.addEventListener('change', handler) : mq.addListener(handler);
+    return () => (mq.removeEventListener ? mq.removeEventListener('change', handler) : mq.removeListener(handler));
+  }, []);
+  const setTheme = mode => {
+    setThemeMode(mode);
+    try {
+      localStorage.setItem('bowls-theme', mode);
+    } catch (e) {}
+  };
+  const isLight = themeMode === 'light' || themeMode === 'system' && systemPrefersLight;
+
+  // Changing day resets which session/row is treated as "on air" — the
+  // previous day's session/row indices won't generally line up.
+  useEffect(() => {
+    setSi(0);
+    setRi(0);
+  }, [dayId]);
+
+  // Firebase mode: listen for remote score changes (so a second device's
+  // edits — or another producer stepping to a different match — show up
+  // here too). Docs are keyed by the schedule-derived match id, and only
+  // hold the live-editable fields (status/sets/etc), not team info.
+  useEffect(() => {
+    if (!FIREBASE_ENABLED) return;
+    const unsub = db.collection('matches').onSnapshot(snap => {
+      const remote = {};
+      snap.docs.forEach(d => {
+        remote[d.id] = d.data();
+      });
+      setScores(remote);
+    });
+    return () => unsub();
+  }, []);
+
+  // Local mode: persist to this browser only.
+  useEffect(() => {
+    if (FIREBASE_ENABLED) return;
+    try {
+      localStorage.setItem('bowls-scores', JSON.stringify(scores));
+    } catch (e) {}
+  }, [scores]);
+
+  const writeScore = (id, updated) => {
+    setScores(prev => {
+      const next = {
+        ...prev,
+        [id]: updated
+      };
+      if (FIREBASE_ENABLED) {
+        db.collection('matches').doc(id).set(updated, {
+          merge: true
+        });
+      }
+      return next;
+    });
+  };
+  const adjust = (id, side, delta) => {
+    const current = scores[id] || defaultScoreState();
+    const sets = current.sets.length ? current.sets.map((s, i) => i === current.currentSet ? {
+      ...s,
+      [side]: Math.max(0, s[side] + delta)
+    } : s) : current.sets;
+    writeScore(id, {
+      ...current,
+      sets
+    });
+  };
+  const setMatchStatus = (id, status) => {
+    const current = scores[id] || defaultScoreState();
+    let sets = current.sets;
+    let currentSet = current.currentSet;
+    if (status === 'live' && sets.length === 0) {
+      sets = [{
+        a: 0,
+        b: 0
+      }];
+      currentSet = 0;
+    }
+    writeScore(id, {
+      ...current,
+      status,
+      sets,
+      currentSet
+    });
+  };
+  const nextSet = id => {
+    const current = scores[id] || defaultScoreState();
+    const sets = [...current.sets, {
+      a: 0,
+      b: 0
+    }];
+    writeScore(id, {
+      ...current,
+      sets,
+      currentSet: sets.length - 1,
+      status: 'live'
+    });
+  };
+  const openMatch = id => {
+    setOpenId(id);
+    setView('detail');
+  };
+  const day = SCHEDULE[dayId];
+  const session = day && day.sessions[si];
+  const row = session && session.rows[ri];
+  const slotMatches = buildSlotMatches(dayId, si, ri);
+  const matches = slotMatches.map(desc => ({
+    ...desc,
+    ...(scores[desc.id] || defaultScoreState())
+  }));
+  const activeMatch = matches.find(m => m.id === openId);
+  const tvMatches = matches.filter(m => m.isTV);
+  const venueMatches = matches.filter(m => !m.isTV);
+  return /*#__PURE__*/React.createElement("div", {
+    className: 'bowls-console ' + (isLight ? 'theme-light' : '')
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "topbar"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "topbar-titles"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "eyebrow"
+  }, "WORLD FEED · INDOOR BOWLS"), /*#__PURE__*/React.createElement("h1", null, "Gallery Console — SEC Centre")), /*#__PURE__*/React.createElement("div", {
+    className: "day-tabs"
+  }, DAYS.map(d => /*#__PURE__*/React.createElement("button", {
+    key: d.id,
+    className: 'day-tab ' + (d.id === dayId ? 'day-tab-active' : ''),
+    onClick: () => setDayId(d.id)
+  }, d.label, /*#__PURE__*/React.createElement("br", null), d.date))), /*#__PURE__*/React.createElement("div", {
+    style: { display: 'flex', alignItems: 'center', gap: 10 }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "theme-toggle",
+    role: "group",
+    "aria-label": "Theme"
+  }, [{
+    id: 'system',
+    label: 'A',
+    title: 'Match browser'
+  }, {
+    id: 'light',
+    label: '☀',
+    title: 'Light'
+  }, {
+    id: 'dark',
+    label: '●',
+    title: 'Dark'
+  }].map(opt => /*#__PURE__*/React.createElement("button", {
+    key: opt.id,
+    title: opt.title,
+    className: themeMode === opt.id ? 'theme-active' : '',
+    onClick: () => setTheme(opt.id)
+  }, opt.label))), /*#__PURE__*/React.createElement("div", {
+    className: 'sync-pill ' + (FIREBASE_ENABLED ? 'on' : '')
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "pulse"
+  }), FIREBASE_ENABLED ? 'FIREBASE SYNCED' : 'LOCAL DEVICE ONLY'))), /*#__PURE__*/React.createElement("div", {
+    className: "body"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "sidenav"
+  }, NAV.map(n => /*#__PURE__*/React.createElement("button", {
+    key: n.id,
+    className: 'nav-item ' + (view === n.id || n.id === 'wall' && view === 'detail' ? 'nav-item-active' : ''),
+    onClick: () => setView(n.id)
+  }, /*#__PURE__*/React.createElement("span", null, n.label)))), /*#__PURE__*/React.createElement("div", {
+    className: "main"
+  }, view === 'wall' && /*#__PURE__*/React.createElement("div", {
+    className: "view"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "view-header sched-header"
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    className: "eyebrow"
+  }, day ? day.label + ' · ' + day.date : '', " · RINKS 1 & 4 ARE THE WORLD FEED"), /*#__PURE__*/React.createElement("h2", null, "Gallery Wall")), day && /*#__PURE__*/React.createElement("div", {
+    className: "slot-picker"
+  }, /*#__PURE__*/React.createElement("select", {
+    value: si,
+    onChange: e => {
+      setSi(Number(e.target.value));
+      setRi(0);
+    }
+  }, day.sessions.map((s, i) => /*#__PURE__*/React.createElement("option", {
+    key: i,
+    value: i
+  }, s.name))), /*#__PURE__*/React.createElement("select", {
+    value: ri,
+    onChange: e => setRi(Number(e.target.value))
+  }, (session ? session.rows : []).map((r, i) => /*#__PURE__*/React.createElement("option", {
+    key: i,
+    value: i
+  }, r.time))))), row && matches.length === 0 && /*#__PURE__*/React.createElement("div", {
+    className: "day-note"
+  }, "No matches with confirmed teams in this slot yet (likely a semi-final or medal-match placeholder) — nothing to track live here."), /*#__PURE__*/React.createElement("div", {
+    className: "section-label"
+  }, "ON THE WORLD FEED"), /*#__PURE__*/React.createElement("div", {
+    className: "wall-grid"
+  }, tvMatches.map(m => /*#__PURE__*/React.createElement(RinkTile, {
+    key: m.id,
+    match: m,
+    onOpen: openMatch
+  }))), /*#__PURE__*/React.createElement("div", {
+    className: "section-label",
+    style: {
+      marginTop: 18
+    }
+  }, "IN VENUE ONLY (RINKS 2 & 3)"), /*#__PURE__*/React.createElement("div", {
+    className: "venue-strip"
+  }, venueMatches.map(m => /*#__PURE__*/React.createElement(RinkTile, {
+    key: m.id,
+    match: m,
+    onOpen: openMatch,
+    compact: true
+  })))), view === 'detail' && /*#__PURE__*/React.createElement(MatchDetail, {
+    match: activeMatch,
+    onBack: () => setView('wall'),
+    onAdjust: adjust,
+    onSetStatus: setMatchStatus,
+    onNextSet: nextSet
+  }), view === 'schedule' && /*#__PURE__*/React.createElement(Schedule, {
+    dayId: dayId
+  }), view === 'rundown' && /*#__PURE__*/React.createElement(Rundown, null), view === 'standings' && /*#__PURE__*/React.createElement(Standings, null), view === 'sync' && /*#__PURE__*/React.createElement(Sync, null))));
+}
+ReactDOM.createRoot(document.getElementById('root')).render(/*#__PURE__*/React.createElement(App, null));
+</script>
+</body>
+</html>
