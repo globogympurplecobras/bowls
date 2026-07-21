@@ -93,7 +93,15 @@
   .venue-strip { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
   @media (max-width: 720px) { .wall-grid, .venue-strip { grid-template-columns: 1fr; } .sidenav { width: 56px; } .nav-item span { display: none; } }
 
-  .tile { background: linear-gradient(160deg, var(--carpet) 0%, var(--tile-shade) 78%); border: 1px solid var(--line); border-radius: 8px; padding: 14px; text-align: left; color: var(--text); display: flex; flex-direction: column; gap: 10px; transition: transform 0.12s ease, border-color 0.12s ease; }
+  .tile { background: linear-gradient(160deg, var(--carpet) 0%, var(--tile-shade) 78%); border: 1px solid var(--line); border-radius: 8px; padding: 14px; text-align: left; color: var(--text); display: flex; flex-direction: column; gap: 10px; transition: transform 0.12s ease, border-color 0.12s ease; cursor: pointer; font-family: inherit; }
+  .tile-commentator-row { display: flex; }
+  .tile-upcoming-toggle { width: 100%; background: transparent; border: 1px dashed var(--line); color: var(--text-faint); font-size: 11px; padding: 6px 8px; border-radius: 6px; text-align: center; }
+  .tile-upcoming-list { display: flex; flex-direction: column; gap: 2px; margin-top: 2px; }
+  .tile-upcoming-row { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--text-dim); padding: 6px 4px; border-top: 1px solid var(--line); text-align: left; background: transparent; }
+  .tile-upcoming-time { font-family: 'IBM Plex Mono', monospace; color: var(--text-faint); flex-shrink: 0; }
+  .tile-upcoming-teams { flex: 1; }
+  .tile-upcoming-commentator { color: var(--text-faint); font-size: 10px; flex-shrink: 0; }
+  .tile-compact-wrap { display: flex; flex-direction: column; gap: 4px; }
   .tile:hover { transform: translateY(-2px); border-color: var(--carpet-light); }
   .tile-live { border-color: rgba(228,72,60,0.4); }
   .tile-final { opacity: 0.72; }
@@ -1203,33 +1211,41 @@ function loadLocalScores() {
     return {};
   }
 }
-// The Gallery Wall's live tiles are generated from the real SCHEDULE for
-// whichever day/session/row the producer has selected as "on air" — not
-// from a fixed demo list. Rows where the teams aren't decided yet (semi
-// finals, medal matches shown as a label rather than two codes) are left
-// out of live tracking since there's nothing to score yet.
-function buildSlotMatches(dayId, si, ri) {
+// Builds every match scheduled on one rink across a whole session, in time
+// order — this is what lets a Gallery Wall tile show "what's next on this
+// rink" rather than just whatever row happens to be selected. Commentator
+// codes only exist for rinks 1 and 4 (the world-feed rinks); other rinks
+// carry no commentatorCode and the tile simply won't show a chip.
+function buildRinkSessionMatches(dayId, si, rinkIdx) {
   const day = SCHEDULE[dayId];
   const session = day && day.sessions[si];
-  const row = session && session.rows[ri];
-  if (!row) return [];
+  if (!session) return [];
   const out = [];
-  row.matches.forEach((m, idx) => {
+  session.rows.forEach((row, ri) => {
+    const m = row.matches[rinkIdx];
     if (!m) return;
     const [discCode, home, away] = m;
     if (!home) return;
-    const rink = idx + 1;
+    const rink = rinkIdx + 1;
     out.push({
       id: `d${dayId}-s${si}-r${ri}-k${rink}`,
       rink,
-      isTV: idx === 0 || idx === 3,
+      isTV: rinkIdx === 0 || rinkIdx === 3,
       discipline: DISCIPLINES[discCode] || discCode,
       section: row.time,
+      time: row.time,
+      commentatorCode: rinkIdx === 0 ? row.tv1 : rinkIdx === 3 ? row.tv4 : null,
       a: home,
       b: away
     });
   });
   return out;
+}
+// Turns a commentator code like "P&B" into "Paul + Barry" — shared between
+// the Schedule grid and the Gallery Wall tiles so both read the same rota.
+function commentatorLabel(code) {
+  if (!code) return '';
+  return code.split('&').map(c => COMMENTATORS[c] || c).join(' + ');
 }
 function defaultScoreState() {
   return {
@@ -1312,13 +1328,52 @@ function EndPips({
     className: 'pip ' + (i < played ? 'pip-done' : '')
   })));
 }
+// The rest-of-session list under each tile: one compact row per remaining
+// match on that rink, clickable straight through to its detail view. Kept
+// as its own component since both the full and compact tile variants use it.
+function UpcomingList({
+  items,
+  onOpen
+}) {
+  const [expanded, setExpanded] = useState(false);
+  if (!items.length) return null;
+  const toggle = /*#__PURE__*/React.createElement("button", {
+    className: "tile-upcoming-toggle",
+    onClick: e => {
+      e.stopPropagation();
+      setExpanded(v => !v);
+    }
+  }, expanded ? 'Hide' : `Show ${items.length} more this session`);
+  if (!expanded) return toggle;
+  const rows = items.map(m => /*#__PURE__*/React.createElement("button", {
+    key: m.id,
+    className: "tile-upcoming-row",
+    onClick: e => {
+      e.stopPropagation();
+      onOpen(m.id);
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "tile-upcoming-time"
+  }, m.time), /*#__PURE__*/React.createElement("span", {
+    className: "tile-upcoming-teams"
+  }, m.a, " v ", m.b), m.commentatorCode && /*#__PURE__*/React.createElement("span", {
+    className: "tile-upcoming-commentator"
+  }, commentatorLabel(m.commentatorCode))));
+  return /*#__PURE__*/React.createElement(React.Fragment, null, toggle, /*#__PURE__*/React.createElement("div", {
+    className: "tile-upcoming-list"
+  }, rows));
+}
 function RinkTile({
   match,
+  upcoming,
   onOpen,
   compact
 }) {
+  const rest = upcoming || [];
   if (compact) {
-    return /*#__PURE__*/React.createElement("button", {
+    return /*#__PURE__*/React.createElement("div", {
+      className: "tile-compact-wrap"
+    }, /*#__PURE__*/React.createElement("button", {
       className: "tile-compact",
       onClick: () => onOpen(match.id)
     }, /*#__PURE__*/React.createElement("span", {
@@ -1332,11 +1387,22 @@ function RinkTile({
     })), /*#__PURE__*/React.createElement(StatusTag, {
       status: match.status,
       startsIn: match.startsIn
+    })), /*#__PURE__*/React.createElement(UpcomingList, {
+      items: rest,
+      onOpen: onOpen
     }));
   }
-  return /*#__PURE__*/React.createElement("button", {
+  const commentatorChip = match.commentatorCode && /*#__PURE__*/React.createElement("span", {
+    className: "mcell-commentator tile-commentator"
+  }, commentatorLabel(match.commentatorCode));
+  return /*#__PURE__*/React.createElement("div", {
     className: 'tile tile-' + match.status,
-    onClick: () => onOpen(match.id)
+    role: "button",
+    tabIndex: 0,
+    onClick: () => onOpen(match.id),
+    onKeyDown: e => {
+      if (e.key === 'Enter' || e.key === ' ') onOpen(match.id);
+    }
   }, /*#__PURE__*/React.createElement("div", {
     className: "tile-top"
   }, /*#__PURE__*/React.createElement("span", {
@@ -1346,7 +1412,9 @@ function RinkTile({
   }, "WORLD FEED")), /*#__PURE__*/React.createElement(StatusTag, {
     status: match.status,
     startsIn: match.startsIn
-  })), /*#__PURE__*/React.createElement("div", {
+  })), commentatorChip && /*#__PURE__*/React.createElement("div", {
+    className: "tile-commentator-row"
+  }, commentatorChip), /*#__PURE__*/React.createElement("div", {
     className: "tile-discipline"
   }, match.discipline, " · ", match.section), /*#__PURE__*/React.createElement("div", {
     className: "tile-teams"
@@ -1367,6 +1435,9 @@ function RinkTile({
   }), match.status !== 'upcoming' && /*#__PURE__*/React.createElement(EndPips, {
     played: match.endsPlayed,
     total: match.endsInSet
+  }), /*#__PURE__*/React.createElement(UpcomingList, {
+    items: rest,
+    onOpen: onOpen
   }));
 }
 function MatchDetail({
@@ -1550,7 +1621,7 @@ function MatchCell({
     className: 'mcell ' + (tv ? 'mcell-tv' : '')
   }, tv && code && /*#__PURE__*/React.createElement("span", {
     className: "mcell-commentator"
-  }, code.split('&').map(c => COMMENTATORS[c] || c).join(' + ')), /*#__PURE__*/React.createElement("span", {
+  }, commentatorLabel(code)), /*#__PURE__*/React.createElement("span", {
     className: 'mcell-disc mcell-disc-' + disc
   }, disc), home ? /*#__PURE__*/React.createElement("span", {
     className: "mcell-teams"
@@ -1757,10 +1828,10 @@ function Sync({
 function App() {
   const [view, setView] = useState('wall');
   const [dayId, setDayId] = useState(0);
-  // Which session/row of that day's real schedule is "on air" right now —
-  // the producer steps through these manually as the session progresses.
+  // Which session of that day is showing on the Gallery Wall. Which match
+  // within it is "current" per rink is no longer picked manually — each
+  // rink advances on its own the moment its match is marked final.
   const [si, setSi] = useState(0);
-  const [ri, setRi] = useState(0);
   const [scores, setScores] = useState(() => FIREBASE_ENABLED ? {} : loadLocalScores());
   const [openId, setOpenId] = useState(null);
   // Theme: 'system' follows the OS/browser preference; 'light'/'dark' are explicit
@@ -1788,11 +1859,10 @@ function App() {
   };
   const isLight = themeMode === 'light' || themeMode === 'system' && systemPrefersLight;
 
-  // Changing day resets which session/row is treated as "on air" — the
-  // previous day's session/row indices won't generally line up.
+  // Changing day resets which session is showing — the previous day's
+  // session index won't generally line up.
   useEffect(() => {
     setSi(0);
-    setRi(0);
   }, [dayId]);
 
   // Firebase mode: listen for remote score changes (so a second device's
@@ -1887,16 +1957,28 @@ function App() {
     setView('detail');
   };
   const day = SCHEDULE[dayId];
-  const session = day && day.sessions[si];
-  const row = session && session.rows[ri];
-  const slotMatches = buildSlotMatches(dayId, si, ri);
-  const matches = slotMatches.map(desc => ({
+  // Each rink gets its own full-session list, in time order, merged with
+  // whatever live score/status data exists for each match. "Current" is the
+  // first match on that rink that isn't final yet — once a producer marks a
+  // match final in the detail view, the tile advances on its own. If every
+  // match on a rink is final, it just keeps showing the last one.
+  const rinkLists = [0, 1, 2, 3].map(rinkIdx => buildRinkSessionMatches(dayId, si, rinkIdx).map(desc => ({
     ...desc,
     ...(scores[desc.id] || defaultScoreState())
-  }));
-  const activeMatch = matches.find(m => m.id === openId);
-  const tvMatches = matches.filter(m => m.isTV);
-  const venueMatches = matches.filter(m => !m.isTV);
+  })));
+  const rinkSlots = rinkLists.map(list => {
+    if (!list.length) return null;
+    const idx = list.findIndex(m => m.status !== 'final');
+    const currentIdx = idx === -1 ? list.length - 1 : idx;
+    return {
+      current: list[currentIdx],
+      upcoming: list.slice(currentIdx + 1)
+    };
+  });
+  const allSessionMatches = rinkLists.flat();
+  const activeMatch = allSessionMatches.find(m => m.id === openId);
+  const tvSlots = [rinkSlots[0], rinkSlots[3]].filter(Boolean);
+  const venueSlots = [rinkSlots[1], rinkSlots[2]].filter(Boolean);
   return /*#__PURE__*/React.createElement("div", {
     className: 'bowls-console ' + (isLight ? 'theme-light' : '')
   }, /*#__PURE__*/React.createElement("div", {
@@ -1965,21 +2047,16 @@ function App() {
   }, day.sessions.map((s, i) => /*#__PURE__*/React.createElement("option", {
     key: i,
     value: i
-  }, s.name))), /*#__PURE__*/React.createElement("select", {
-    value: ri,
-    onChange: e => setRi(Number(e.target.value))
-  }, (session ? session.rows : []).map((r, i) => /*#__PURE__*/React.createElement("option", {
-    key: i,
-    value: i
-  }, r.time))))), row && matches.length === 0 && /*#__PURE__*/React.createElement("div", {
+  }, s.name))))), tvSlots.length === 0 && venueSlots.length === 0 && /*#__PURE__*/React.createElement("div", {
     className: "day-note"
-  }, "No matches with confirmed teams in this slot yet (likely a semi-final or medal-match placeholder) — nothing to track live here."), /*#__PURE__*/React.createElement("div", {
+  }, "No matches with confirmed teams in this session yet (likely a semi-final or medal-match placeholder) — nothing to track live here."), /*#__PURE__*/React.createElement("div", {
     className: "section-label"
   }, "ON THE WORLD FEED"), /*#__PURE__*/React.createElement("div", {
     className: "wall-grid"
-  }, tvMatches.map(m => /*#__PURE__*/React.createElement(RinkTile, {
-    key: m.id,
-    match: m,
+  }, tvSlots.map(slot => /*#__PURE__*/React.createElement(RinkTile, {
+    key: slot.current.rink,
+    match: slot.current,
+    upcoming: slot.upcoming,
     onOpen: openMatch
   }))), /*#__PURE__*/React.createElement("div", {
     className: "section-label",
@@ -1988,9 +2065,10 @@ function App() {
     }
   }, "IN VENUE ONLY (RINKS 2 & 3)"), /*#__PURE__*/React.createElement("div", {
     className: "venue-strip"
-  }, venueMatches.map(m => /*#__PURE__*/React.createElement(RinkTile, {
-    key: m.id,
-    match: m,
+  }, venueSlots.map(slot => /*#__PURE__*/React.createElement(RinkTile, {
+    key: slot.current.rink,
+    match: slot.current,
+    upcoming: slot.upcoming,
     onOpen: openMatch,
     compact: true
   })))), view === 'detail' && /*#__PURE__*/React.createElement(MatchDetail, {
