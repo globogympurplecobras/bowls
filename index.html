@@ -123,7 +123,13 @@
 
   .team-row { display: flex; align-items: center; gap: 8px; font-size: 13px; margin-bottom: 4px; }
   .flag { font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 500; color: #fff; padding: 2px 5px; border-radius: 3px; letter-spacing: 0.03em; }
-  .team-name { color: var(--text); }
+  .team-name { color: var(--text); flex: 1; }
+
+  .tile-stepper { display: flex; align-items: center; gap: 4px; }
+  .tile-stepper button { background: var(--panel-raised); border: 1px solid var(--line); color: var(--text); border-radius: 4px; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 12px; line-height: 1; }
+  .tile-stepper-val { font-family: 'Oswald', sans-serif; font-size: 13px; width: 16px; text-align: center; }
+  .tile-compact-score-edit { display: flex; align-items: center; gap: 4px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--text-dim); }
+  .tile-score-input { width: 32px; background: var(--panel-raised); border: 1px solid var(--line); color: var(--text); border-radius: 4px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; padding: 2px 4px; text-align: center; }
 
   .scoreline { font-family: 'Oswald', sans-serif; font-size: 20px; display: flex; gap: 10px; }
   .scoreline-upcoming { color: var(--text-faint); font-size: 14px; }
@@ -1329,28 +1335,21 @@ function EndPips({
   })));
 }
 // The rest-of-session list under each tile: one compact row per remaining
-// match on that rink, clickable straight through to its detail view. Kept
-// as its own component since both the full and compact tile variants use it.
+// match on that rink, permanently visible (no expand/collapse). Clicking a
+// row makes that match the "focused" one for this rink — it swaps into the
+// main tile above instead of navigating anywhere. Kept as its own component
+// since both the full and compact tile variants use it.
 function UpcomingList({
   items,
-  onOpen
+  onFocus
 }) {
-  const [expanded, setExpanded] = useState(false);
   if (!items.length) return null;
-  const toggle = /*#__PURE__*/React.createElement("button", {
-    className: "tile-upcoming-toggle",
-    onClick: e => {
-      e.stopPropagation();
-      setExpanded(v => !v);
-    }
-  }, expanded ? 'Hide' : `Show ${items.length} more this session`);
-  if (!expanded) return toggle;
   const rows = items.map(m => /*#__PURE__*/React.createElement("button", {
     key: m.id,
     className: "tile-upcoming-row",
     onClick: e => {
       e.stopPropagation();
-      onOpen(m.id);
+      onFocus(m.id);
     }
   }, /*#__PURE__*/React.createElement("span", {
     className: "tile-upcoming-time"
@@ -1359,18 +1358,67 @@ function UpcomingList({
   }, m.a, " v ", m.b), m.commentatorCode && /*#__PURE__*/React.createElement("span", {
     className: "tile-upcoming-commentator"
   }, commentatorLabel(m.commentatorCode))));
-  return /*#__PURE__*/React.createElement(React.Fragment, null, toggle, /*#__PURE__*/React.createElement("div", {
+  return /*#__PURE__*/React.createElement("div", {
     className: "tile-upcoming-list"
-  }, rows));
+  }, rows);
+}
+// Small +/- control for the current set score, used inline on the two
+// world-feed tiles so a producer never has to leave the Gallery Wall to
+// bump a score. Stops propagation so clicking it doesn't also open the tile.
+function TileStepper({
+  value,
+  onDec,
+  onInc
+}) {
+  return /*#__PURE__*/React.createElement("div", {
+    className: "tile-stepper"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: e => {
+      e.stopPropagation();
+      onDec();
+    }
+  }, "−"), /*#__PURE__*/React.createElement("span", {
+    className: "tile-stepper-val"
+  }, value), /*#__PURE__*/React.createElement("button", {
+    onClick: e => {
+      e.stopPropagation();
+      onInc();
+    }
+  }, "+"));
 }
 function RinkTile({
   match,
   upcoming,
   onOpen,
-  compact
+  onFocus,
+  compact,
+  onAdjust,
+  onSetScore
 }) {
   const rest = upcoming || [];
+  const set = match.sets[match.currentSet] || {
+    a: 0,
+    b: 0
+  };
   if (compact) {
+    const scoreEdit = onSetScore && /*#__PURE__*/React.createElement("div", {
+      className: "tile-compact-score-edit",
+      onClick: e => e.stopPropagation()
+    }, /*#__PURE__*/React.createElement("input", {
+      type: "number",
+      min: 0,
+      inputMode: "numeric",
+      className: "tile-score-input",
+      value: set.a,
+      onChange: e => onSetScore(match.id, 'a', parseInt(e.target.value, 10))
+    }), /*#__PURE__*/React.createElement("span", null, "–"), /*#__PURE__*/React.createElement("input", {
+      type: "number",
+      min: 0,
+      inputMode: "numeric",
+      className: "tile-score-input",
+      value: set.b,
+      onChange: e => onSetScore(match.id, 'b', parseInt(e.target.value, 10))
+    }));
     return /*#__PURE__*/React.createElement("div", {
       className: "tile-compact-wrap"
     }, /*#__PURE__*/React.createElement("button", {
@@ -1384,12 +1432,12 @@ function RinkTile({
       code: match.a
     }), match.a, " v ", match.b, /*#__PURE__*/React.createElement(Flag, {
       code: match.b
-    })), /*#__PURE__*/React.createElement(StatusTag, {
+    })), scoreEdit, /*#__PURE__*/React.createElement(StatusTag, {
       status: match.status,
       startsIn: match.startsIn
     })), /*#__PURE__*/React.createElement(UpcomingList, {
       items: rest,
-      onOpen: onOpen
+      onFocus: onFocus
     }));
   }
   const commentatorChip = match.commentatorCode && /*#__PURE__*/React.createElement("span", {
@@ -1424,20 +1472,28 @@ function RinkTile({
     code: match.a
   }), /*#__PURE__*/React.createElement("span", {
     className: "team-name"
-  }, NATIONS[match.a]?.name)), /*#__PURE__*/React.createElement("div", {
+  }, NATIONS[match.a]?.name), onAdjust && /*#__PURE__*/React.createElement(TileStepper, {
+    value: set.a,
+    onDec: () => onAdjust(match.id, 'a', -1),
+    onInc: () => onAdjust(match.id, 'a', 1)
+  })), /*#__PURE__*/React.createElement("div", {
     className: "team-row"
   }, /*#__PURE__*/React.createElement(Flag, {
     code: match.b
   }), /*#__PURE__*/React.createElement("span", {
     className: "team-name"
-  }, NATIONS[match.b]?.name))), /*#__PURE__*/React.createElement(ScoreLine, {
+  }, NATIONS[match.b]?.name), onAdjust && /*#__PURE__*/React.createElement(TileStepper, {
+    value: set.b,
+    onDec: () => onAdjust(match.id, 'b', -1),
+    onInc: () => onAdjust(match.id, 'b', 1)
+  }))), /*#__PURE__*/React.createElement(ScoreLine, {
     match: match
   }), match.status !== 'upcoming' && /*#__PURE__*/React.createElement(EndPips, {
     played: match.endsPlayed,
     total: match.endsInSet
   }), /*#__PURE__*/React.createElement(UpcomingList, {
     items: rest,
-    onOpen: onOpen
+    onFocus: onFocus
   }));
 }
 function MatchDetail({
@@ -1486,34 +1542,7 @@ function MatchDetail({
   }, "Next set"), /*#__PURE__*/React.createElement("button", {
     className: 'status-btn ' + (match.status === 'final' ? 'status-btn-active' : ''),
     onClick: () => onSetStatus(match.id, 'final')
-  }, "Mark final")), match.isTV ? /*#__PURE__*/React.createElement("div", {
-    className: "broadcast-frame"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "broadcast-feed"
-  }, "CAMERA ", match.rink, " · RINK ", match.rink, " FEED"), /*#__PURE__*/React.createElement("div", {
-    className: "overlay-bug"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "overlay-row"
-  }, /*#__PURE__*/React.createElement(Flag, {
-    code: match.a
-  }), /*#__PURE__*/React.createElement("span", {
-    className: "overlay-name"
-  }, NATIONS[match.a]?.name), /*#__PURE__*/React.createElement("span", {
-    className: "overlay-score"
-  }, set.a)), /*#__PURE__*/React.createElement("div", {
-    className: "overlay-row"
-  }, /*#__PURE__*/React.createElement(Flag, {
-    code: match.b
-  }), /*#__PURE__*/React.createElement("span", {
-    className: "overlay-name"
-  }, NATIONS[match.b]?.name), /*#__PURE__*/React.createElement("span", {
-    className: "overlay-score"
-  }, set.b)), /*#__PURE__*/React.createElement("div", {
-    className: "overlay-foot"
-  }, /*#__PURE__*/React.createElement("span", null, match.discipline.toUpperCase()), /*#__PURE__*/React.createElement(StatusTag, {
-    status: match.status,
-    startsIn: match.startsIn
-  })))) : /*#__PURE__*/React.createElement("div", {
+  }, "Mark final")), !match.isTV && /*#__PURE__*/React.createElement("div", {
     className: "venue-only-note"
   }, "Rink ", match.rink, " isn't on the world feed — in-venue only, no broadcast graphics for this match."), /*#__PURE__*/React.createElement("div", {
     className: "detail-panels"
@@ -1834,6 +1863,12 @@ function App() {
   const [si, setSi] = useState(0);
   const [scores, setScores] = useState(() => FIREBASE_ENABLED ? {} : loadLocalScores());
   const [openId, setOpenId] = useState(null);
+  // Manual "which match is the focused/main tile" override per rink slot
+  // (0-3). Defaults to the first non-final match on that rink; clicking a
+  // row in a tile's upcoming list sets an override here instead of
+  // navigating away, so producers can jump the wall's focus straight to any
+  // match in the session.
+  const [focusOverride, setFocusOverride] = useState({});
   // Theme: 'system' follows the OS/browser preference; 'light'/'dark' are explicit
   // overrides the person picked, remembered across visits via localStorage.
   const [themeMode, setThemeMode] = useState(() => {
@@ -1864,6 +1899,12 @@ function App() {
   useEffect(() => {
     setSi(0);
   }, [dayId]);
+
+  // Changing day or session invalidates any manual focus picks — the
+  // rink-slot indices they were keyed on now refer to a different session.
+  useEffect(() => {
+    setFocusOverride({});
+  }, [dayId, si]);
 
   // Firebase mode: listen for remote score changes (so a second device's
   // edits — or another producer stepping to a different match — show up
@@ -1912,13 +1953,47 @@ function App() {
   };
   const adjust = (id, side, delta) => {
     const current = scores[id] || defaultScoreState();
-    const sets = current.sets.length ? current.sets.map((s, i) => i === current.currentSet ? {
+    let sets = current.sets;
+    let currentSet = current.currentSet;
+    if (!sets.length) {
+      sets = [{
+        a: 0,
+        b: 0
+      }];
+      currentSet = 0;
+    }
+    sets = sets.map((s, i) => i === currentSet ? {
       ...s,
       [side]: Math.max(0, s[side] + delta)
-    } : s) : current.sets;
+    } : s);
     writeScore(id, {
       ...current,
-      sets
+      sets,
+      currentSet
+    });
+  };
+  // Sets an absolute score for the current set (vs. adjust's relative +/-),
+  // used by the direct number inputs on the venue-only (rink 2/3) tiles.
+  const setSetScore = (id, side, value) => {
+    const current = scores[id] || defaultScoreState();
+    let sets = current.sets;
+    let currentSet = current.currentSet;
+    if (!sets.length) {
+      sets = [{
+        a: 0,
+        b: 0
+      }];
+      currentSet = 0;
+    }
+    const clamped = Number.isFinite(value) ? Math.max(0, value) : 0;
+    sets = sets.map((s, i) => i === currentSet ? {
+      ...s,
+      [side]: clamped
+    } : s);
+    writeScore(id, {
+      ...current,
+      sets,
+      currentSet
     });
   };
   const setMatchStatus = (id, status) => {
@@ -1956,29 +2031,47 @@ function App() {
     setOpenId(id);
     setView('detail');
   };
+  const focusMatch = (rinkIdx, id) => {
+    setFocusOverride(prev => ({
+      ...prev,
+      [rinkIdx]: id
+    }));
+  };
   const day = SCHEDULE[dayId];
   // Each rink gets its own full-session list, in time order, merged with
-  // whatever live score/status data exists for each match. "Current" is the
-  // first match on that rink that isn't final yet — once a producer marks a
-  // match final in the detail view, the tile advances on its own. If every
-  // match on a rink is final, it just keeps showing the last one.
+  // whatever live score/status data exists for each match. "Current" (the
+  // main tile shown) defaults to the first match on that rink that isn't
+  // final yet, but a producer can pin it to any match in the session via
+  // focusOverride — clicking a row in the always-visible "rest of session"
+  // list below a tile. Everything else in the session stays listed there,
+  // not just what comes after the focused match, so focus can move either way.
   const rinkLists = [0, 1, 2, 3].map(rinkIdx => buildRinkSessionMatches(dayId, si, rinkIdx).map(desc => ({
     ...desc,
     ...(scores[desc.id] || defaultScoreState())
   })));
-  const rinkSlots = rinkLists.map(list => {
+  const rinkSlots = rinkLists.map((list, rinkIdx) => {
     if (!list.length) return null;
-    const idx = list.findIndex(m => m.status !== 'final');
-    const currentIdx = idx === -1 ? list.length - 1 : idx;
+    const overrideId = focusOverride[rinkIdx];
+    let currentIdx = overrideId ? list.findIndex(m => m.id === overrideId) : -1;
+    if (currentIdx === -1) {
+      const idx = list.findIndex(m => m.status !== 'final');
+      currentIdx = idx === -1 ? list.length - 1 : idx;
+    }
     return {
       current: list[currentIdx],
-      upcoming: list.slice(currentIdx + 1)
+      upcoming: list.filter((_, i) => i !== currentIdx)
     };
   });
   const allSessionMatches = rinkLists.flat();
   const activeMatch = allSessionMatches.find(m => m.id === openId);
-  const tvSlots = [rinkSlots[0], rinkSlots[3]].filter(Boolean);
-  const venueSlots = [rinkSlots[1], rinkSlots[2]].filter(Boolean);
+  const tvSlots = [0, 3].map(rinkIdx => ({
+    rinkIdx,
+    slot: rinkSlots[rinkIdx]
+  })).filter(x => x.slot);
+  const venueSlots = [1, 2].map(rinkIdx => ({
+    rinkIdx,
+    slot: rinkSlots[rinkIdx]
+  })).filter(x => x.slot);
   return /*#__PURE__*/React.createElement("div", {
     className: 'bowls-console ' + (isLight ? 'theme-light' : '')
   }, /*#__PURE__*/React.createElement("div", {
@@ -2042,7 +2135,6 @@ function App() {
     value: si,
     onChange: e => {
       setSi(Number(e.target.value));
-      setRi(0);
     }
   }, day.sessions.map((s, i) => /*#__PURE__*/React.createElement("option", {
     key: i,
@@ -2053,11 +2145,16 @@ function App() {
     className: "section-label"
   }, "ON THE WORLD FEED"), /*#__PURE__*/React.createElement("div", {
     className: "wall-grid"
-  }, tvSlots.map(slot => /*#__PURE__*/React.createElement(RinkTile, {
+  }, tvSlots.map(({
+    rinkIdx,
+    slot
+  }) => /*#__PURE__*/React.createElement(RinkTile, {
     key: slot.current.rink,
     match: slot.current,
     upcoming: slot.upcoming,
-    onOpen: openMatch
+    onOpen: openMatch,
+    onFocus: id => focusMatch(rinkIdx, id),
+    onAdjust: adjust
   }))), /*#__PURE__*/React.createElement("div", {
     className: "section-label",
     style: {
@@ -2065,11 +2162,16 @@ function App() {
     }
   }, "IN VENUE ONLY (RINKS 2 & 3)"), /*#__PURE__*/React.createElement("div", {
     className: "venue-strip"
-  }, venueSlots.map(slot => /*#__PURE__*/React.createElement(RinkTile, {
+  }, venueSlots.map(({
+    rinkIdx,
+    slot
+  }) => /*#__PURE__*/React.createElement(RinkTile, {
     key: slot.current.rink,
     match: slot.current,
     upcoming: slot.upcoming,
     onOpen: openMatch,
+    onFocus: id => focusMatch(rinkIdx, id),
+    onSetScore: setSetScore,
     compact: true
   })))), view === 'detail' && /*#__PURE__*/React.createElement(MatchDetail, {
     match: activeMatch,
