@@ -2,8 +2,22 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>Gallery Console — Indoor Bowls, Glasgow 2026</title>
+
+<!-- PWA / "Add to Home Screen" support. Safari on iPad mostly ignores
+     manifest.json for standalone mode, hence the apple-specific meta tags
+     below doing the real work there; manifest.json covers Android/desktop
+     Chrome installs. Once added to the home screen this opens full-screen,
+     no address bar — meant for on-site producer use on an iPad. -->
+<link rel="manifest" href="manifest.json" />
+<link rel="apple-touch-icon" href="apple-touch-icon.png" />
+<link rel="icon" href="icon-192.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Gallery Console" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="theme-color" content="#0A0D11" />
 
 <!-- React + ReactDOM (UMD builds, no bundler needed) -->
 <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -1348,8 +1362,23 @@ function MatchDetail({
   onBack,
   onAdjust,
   onSetStatus,
-  onNextSet
+  onNextSet,
+  onNotesChange
 }) {
+  // Notes are edited locally and flushed to the shared store (Firebase or
+  // localStorage, via onNotesChange) a short beat after typing stops —
+  // keeps every keystroke off the network while still saving reliably.
+  const [notesDraft, setNotesDraft] = useState(match ? match.notes || '' : '');
+  useEffect(() => {
+    setNotesDraft(match ? match.notes || '' : '');
+  }, [match && match.id]);
+  useEffect(() => {
+    if (!match) return;
+    const t = setTimeout(() => {
+      if (notesDraft !== (match.notes || '')) onNotesChange(match.id, notesDraft);
+    }, 500);
+    return () => clearTimeout(t);
+  }, [notesDraft]);
   if (!match) return null;
   const set = match.sets[match.currentSet] || {
     a: 0,
@@ -1448,10 +1477,12 @@ function MatchDetail({
   }, "Producer notes"), /*#__PURE__*/React.createElement("textarea", {
     className: "notes",
     placeholder: "Ends of note, momentum shifts, graphics callouts...",
-    rows: 5
+    rows: 5,
+    value: notesDraft,
+    onChange: e => setNotesDraft(e.target.value)
   }), /*#__PURE__*/React.createElement("div", {
     className: "panel-note"
-  }, "Notes aren't saved yet — wire this up alongside the score sync whenever it's useful."))));
+  }, FIREBASE_ENABLED ? 'Synced to Firebase, same as scores.' : 'Saved to this device only (localStorage), same as scores.'))));
 }
 function Standings({
   scores
@@ -1731,6 +1762,13 @@ function App() {
       return next;
     });
   };
+  const setNotes = (id, notes) => {
+    const current = scores[id] || defaultScoreState();
+    writeScore(id, {
+      ...current,
+      notes
+    });
+  };
   const adjust = (id, side, delta) => {
     const current = scores[id] || defaultScoreState();
     const sets = current.sets.length ? current.sets.map((s, i) => i === current.currentSet ? {
@@ -1889,7 +1927,8 @@ function App() {
     onBack: () => setView('wall'),
     onAdjust: adjust,
     onSetStatus: setMatchStatus,
-    onNextSet: nextSet
+    onNextSet: nextSet,
+    onNotesChange: setNotes
   }), view === 'schedule' && /*#__PURE__*/React.createElement(Schedule, {
     dayId: dayId
   }), view === 'rundown' && /*#__PURE__*/React.createElement(Rundown, null), view === 'standings' && /*#__PURE__*/React.createElement(Standings, {
