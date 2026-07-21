@@ -91,15 +91,54 @@ commentator chip pulled from the schedule's `tv1`/`tv4` rota for that
 match (`commentatorLabel()` turns a code like `P&B` into "Paul + Barry").
 Rinks 2 and 3 are in-venue only and never carry a commentator chip.
 
-Every tile — world feed or venue — has a "Show N more this session"
-toggle that expands to list the rest of that rink's matches for the
-session (time, matchup, commentator where relevant), each clickable
-straight through to that match's detail view. This is built from
-`buildRinkSessionMatches()`, which walks every row of a session for one
-rink index and returns matches in time order.
+Every tile — world feed or venue — permanently lists the rest of that
+rink's matches for the session below it (time, matchup, commentator where
+relevant); there's no expand/collapse toggle any more. Clicking one of
+those rows doesn't open the detail view — it changes the "focus" for that
+rink, swapping that match into the main tile above (and the previously
+focused match drops back into the list). This focus is a manual override
+on top of the normal auto-advance and resets whenever you change day or
+session. This is built from `buildRinkSessionMatches()`, which walks every
+row of a session for one rink index and returns matches in time order.
 
 The session picker (AM/PM) is still manual — only the within-session
-row-stepping was replaced with per-rink auto-advance.
+row-stepping is automatic (or manually overridden via focus, as above).
+
+Score entry no longer requires opening the detail view either: the two
+world-feed tiles (rinks 1 & 4) have inline +/− steppers next to each team
+for the current set, and the two venue-only tiles (rinks 2 & 3) have
+direct number inputs for the same. Every tile also has its own Standby /
+Live / Next set (or Tiebreak) / Final buttons (`TileStatusControls`), so
+the full match lifecycle — not just the score — is driven from the wall.
+The detail view's score editor and status controls are still there for
+finer control (and for producer notes), but the Gallery Wall itself is
+now enough for routine match management. The old "CAMERA · RINK FEED"
+placeholder box in the detail view — a mockup for an embedded broadcast
+preview — has been removed; the app was never going to be able to embed
+the actual world-feed video, so it was just clutter.
+
+Every tile shows the full set-by-set score line (`ScoreLine`), not just
+the current set, so previous sets stay visible once you move on to the
+next one — on the compact venue tiles this sits just above the score
+inputs. Once a match is marked final, the winning team is called out
+visually: on the full tiles the winning row is bolded with a "WINNER"
+tag next to the name; on the compact tiles there's a "WINNER: [nation]"
+line underneath, since there's no room there for two separate rows
+(`matchWinner()` works out the winner from the set scores, accounting for
+the 2-set-plus-tiebreaker format below).
+
+## Scoring format
+
+Ends-per-set is derived per match from its discipline code, not a single
+global constant (`endsPerSet()`): singles (Men's/Women's Singles) play two
+sets of 7 ends; pairs and every para discipline play two sets of 5 ends.
+If those two sets split — one win each — a third, 1-end tiebreaker set
+decides the match; the "Next set" button in the detail view becomes
+"Start tiebreaker" when a match reaches that point, and disappears
+entirely once the tiebreaker's been played (or once one side has won both
+of the first two sets and no tiebreaker is needed). This logic lives in
+`endsPerSet()` / `needsTiebreak()` / `canAddSet()`, so if these rules
+change again it should just be those three functions.
 
 ## Standings
 
@@ -125,13 +164,23 @@ Firestore has a problem mid-session.
 ## What's still manual, deliberately
 
 - Live results still need a human — no public live-scores feed exists for
-  this event as far as I could find, so the score stepper in the app is
-  the entry point.
-- The session picker on the Gallery Wall (AM vs PM) is manual; only
-  within-session match progression is automatic.
+  this event as far as I could find, so the inline steppers/inputs on the
+  Gallery Wall (or the score editor in the detail view) are the entry
+  point.
+- The session picker on the Gallery Wall (AM vs PM) is manual; within-session
+  match progression auto-advances, but can also be manually overridden by
+  clicking a match in a tile's "rest of session" list.
 
 ## Known open question
 
 The commentator legend (Schedule tab) flags a code, `SIAN`, that isn't in
 the original commentator rota — worth confirming with the production
 team before relying on it.
+
+## Not built yet
+
+Athlete names. The schedule data only carries nation codes (`ENG`, `SCO`,
+etc.) — no individual player names — so tiles and the detail view only
+ever show country. Adding names means extending the schedule data model
+first (either hand-entered per match, or a lookup table keyed by
+discipline/nation if squads are fixed for the event) before any UI work.

@@ -130,8 +130,18 @@
   .tile-stepper-val { font-family: 'Oswald', sans-serif; font-size: 13px; width: 16px; text-align: center; }
   .tile-compact-score-edit { display: flex; align-items: center; gap: 4px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--text-dim); }
   .tile-score-input { width: 32px; background: var(--panel-raised); border: 1px solid var(--line); color: var(--text); border-radius: 4px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; padding: 2px 4px; text-align: center; }
+  .tile-compact-team { display: inline-flex; align-items: center; gap: 4px; }
+  .tile-compact-team-winner { font-weight: 700; color: var(--carpet-light); }
+
+  .tile-status-controls { display: flex; gap: 4px; flex-wrap: wrap; margin: 2px 0; }
+  .tile-status-btn { background: var(--panel); border: 1px solid var(--line); color: var(--text-dim); font-size: 10px; padding: 4px 8px; border-radius: 5px; }
+  .tile-status-btn-active { background: var(--carpet); border-color: var(--carpet-light); color: var(--text); }
+  .tag-winner { background: rgba(58,160,214,0.15); color: var(--carpet-light); }
+  .team-row-winner .team-name { font-weight: 700; }
+  .tile-winner-note { font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.06em; color: var(--carpet-light); }
 
   .scoreline { font-family: 'Oswald', sans-serif; font-size: 20px; display: flex; gap: 10px; }
+  .scoreline-compact { font-size: 12px; gap: 6px; }
   .scoreline-upcoming { color: var(--text-faint); font-size: 14px; }
   .set { color: var(--text-dim); }
   .set-current { color: var(--text); }
@@ -1286,6 +1296,17 @@ function canAddSet(sets) {
   if (sets.length === 2) return needsTiebreak(sets);
   return false;
 }
+// Who's actually won the match: same side wins both of the first two sets,
+// or — if those were split — whoever won the 1-end tiebreaker. Returns
+// null if it isn't decided yet (used to gate the "final" winner display).
+function matchWinner(sets) {
+  if (!sets || sets.length < 2) return null;
+  const w0 = setWinner(sets[0]);
+  const w1 = setWinner(sets[1]);
+  if (w0 && w0 === w1) return w0;
+  if (sets.length >= 3) return setWinner(sets[2]);
+  return null;
+}
 const NAV = [{
   id: 'wall',
   label: 'Gallery Wall'
@@ -1333,13 +1354,14 @@ function StatusTag({
   }, "FT");
 }
 function ScoreLine({
-  match
+  match,
+  compact
 }) {
   if (match.status === 'upcoming') return /*#__PURE__*/React.createElement("div", {
-    className: "scoreline scoreline-upcoming"
+    className: 'scoreline scoreline-upcoming' + (compact ? ' scoreline-compact' : '')
   }, "— vs —");
   return /*#__PURE__*/React.createElement("div", {
-    className: "scoreline"
+    className: 'scoreline' + (compact ? ' scoreline-compact' : '')
   }, match.sets.map((s, i) => /*#__PURE__*/React.createElement("span", {
     key: i,
     className: 'set ' + (i === match.currentSet && match.status === 'live' ? 'set-current' : '')
@@ -1410,6 +1432,34 @@ function TileStepper({
     }
   }, "+"));
 }
+// Standby / Live / Next-set (or tiebreaker) / Final controls, inline on the
+// Gallery Wall tile itself — the same transitions the detail view offers,
+// so a producer never has to leave the wall for routine match management.
+function TileStatusControls({
+  match,
+  onSetStatus,
+  onNextSet
+}) {
+  const stop = fn => e => {
+    e.stopPropagation();
+    fn();
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    className: "tile-status-controls"
+  }, /*#__PURE__*/React.createElement("button", {
+    className: 'tile-status-btn ' + (match.status === 'upcoming' ? 'tile-status-btn-active' : ''),
+    onClick: stop(() => onSetStatus(match.id, 'upcoming'))
+  }, "Standby"), /*#__PURE__*/React.createElement("button", {
+    className: 'tile-status-btn ' + (match.status === 'live' ? 'tile-status-btn-active' : ''),
+    onClick: stop(() => onSetStatus(match.id, 'live'))
+  }, "Live"), match.status === 'live' && canAddSet(match.sets) && /*#__PURE__*/React.createElement("button", {
+    className: "tile-status-btn",
+    onClick: stop(() => onNextSet(match.id))
+  }, needsTiebreak(match.sets) ? 'Tiebreak' : 'Next set'), /*#__PURE__*/React.createElement("button", {
+    className: 'tile-status-btn ' + (match.status === 'final' ? 'tile-status-btn-active' : ''),
+    onClick: stop(() => onSetStatus(match.id, 'final'))
+  }, "Final"));
+}
 function RinkTile({
   match,
   upcoming,
@@ -1417,13 +1467,16 @@ function RinkTile({
   onFocus,
   compact,
   onAdjust,
-  onSetScore
+  onSetScore,
+  onSetStatus,
+  onNextSet
 }) {
   const rest = upcoming || [];
   const set = match.sets[match.currentSet] || {
     a: 0,
     b: 0
   };
+  const winner = match.status === 'final' ? matchWinner(match.sets) : null;
   if (compact) {
     const scoreEdit = onSetScore && /*#__PURE__*/React.createElement("div", {
       className: "tile-compact-score-edit",
@@ -1452,14 +1505,27 @@ function RinkTile({
       className: "tile-compact-rink"
     }, "RINK ", match.rink), /*#__PURE__*/React.createElement("span", {
       className: "tile-compact-teams"
+    }, /*#__PURE__*/React.createElement("span", {
+      className: 'tile-compact-team' + (winner === 'a' ? ' tile-compact-team-winner' : '')
     }, /*#__PURE__*/React.createElement(Flag, {
       code: match.a
-    }), match.a, " v ", match.b, /*#__PURE__*/React.createElement(Flag, {
+    }), match.a), " v ", /*#__PURE__*/React.createElement("span", {
+      className: 'tile-compact-team' + (winner === 'b' ? ' tile-compact-team-winner' : '')
+    }, /*#__PURE__*/React.createElement(Flag, {
       code: match.b
-    })), scoreEdit, /*#__PURE__*/React.createElement(StatusTag, {
+    }), match.b)), scoreEdit, /*#__PURE__*/React.createElement(StatusTag, {
       status: match.status,
       startsIn: match.startsIn
-    })), /*#__PURE__*/React.createElement(UpcomingList, {
+    })), /*#__PURE__*/React.createElement(ScoreLine, {
+      match: match,
+      compact: true
+    }), winner && /*#__PURE__*/React.createElement("div", {
+      className: "tile-winner-note"
+    }, "WINNER: ", NATIONS[winner === 'a' ? match.a : match.b]?.name), onSetStatus && /*#__PURE__*/React.createElement(TileStatusControls, {
+      match: match,
+      onSetStatus: onSetStatus,
+      onNextSet: onNextSet
+    }), /*#__PURE__*/React.createElement(UpcomingList, {
       items: rest,
       onFocus: onFocus
     }));
@@ -1486,27 +1552,35 @@ function RinkTile({
     startsIn: match.startsIn
   })), commentatorChip && /*#__PURE__*/React.createElement("div", {
     className: "tile-commentator-row"
-  }, commentatorChip), /*#__PURE__*/React.createElement("div", {
+  }, commentatorChip), onSetStatus && /*#__PURE__*/React.createElement(TileStatusControls, {
+    match: match,
+    onSetStatus: onSetStatus,
+    onNextSet: onNextSet
+  }), /*#__PURE__*/React.createElement("div", {
     className: "tile-discipline"
   }, match.discipline, " · ", match.section), /*#__PURE__*/React.createElement("div", {
     className: "tile-teams"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "team-row"
+    className: 'team-row' + (winner === 'a' ? ' team-row-winner' : '')
   }, /*#__PURE__*/React.createElement(Flag, {
     code: match.a
   }), /*#__PURE__*/React.createElement("span", {
     className: "team-name"
-  }, NATIONS[match.a]?.name), onAdjust && /*#__PURE__*/React.createElement(TileStepper, {
+  }, NATIONS[match.a]?.name), winner === 'a' && /*#__PURE__*/React.createElement("span", {
+    className: "tag tag-winner"
+  }, "WINNER"), onAdjust && /*#__PURE__*/React.createElement(TileStepper, {
     value: set.a,
     onDec: () => onAdjust(match.id, 'a', -1),
     onInc: () => onAdjust(match.id, 'a', 1)
   })), /*#__PURE__*/React.createElement("div", {
-    className: "team-row"
+    className: 'team-row' + (winner === 'b' ? ' team-row-winner' : '')
   }, /*#__PURE__*/React.createElement(Flag, {
     code: match.b
   }), /*#__PURE__*/React.createElement("span", {
     className: "team-name"
-  }, NATIONS[match.b]?.name), onAdjust && /*#__PURE__*/React.createElement(TileStepper, {
+  }, NATIONS[match.b]?.name), winner === 'b' && /*#__PURE__*/React.createElement("span", {
+    className: "tag tag-winner"
+  }, "WINNER"), onAdjust && /*#__PURE__*/React.createElement(TileStepper, {
     value: set.b,
     onDec: () => onAdjust(match.id, 'b', -1),
     onInc: () => onAdjust(match.id, 'b', 1)
@@ -2179,7 +2253,9 @@ function App() {
     upcoming: slot.upcoming,
     onOpen: openMatch,
     onFocus: id => focusMatch(rinkIdx, id),
-    onAdjust: adjust
+    onAdjust: adjust,
+    onSetStatus: setMatchStatus,
+    onNextSet: nextSet
   }))), /*#__PURE__*/React.createElement("div", {
     className: "section-label",
     style: {
@@ -2197,6 +2273,8 @@ function App() {
     onOpen: openMatch,
     onFocus: id => focusMatch(rinkIdx, id),
     onSetScore: setSetScore,
+    onSetStatus: setMatchStatus,
+    onNextSet: nextSet,
     compact: true
   })))), view === 'detail' && /*#__PURE__*/React.createElement(MatchDetail, {
     match: activeMatch,
