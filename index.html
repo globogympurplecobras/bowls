@@ -247,14 +247,10 @@
 
   .sync-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
   @media (max-width: 720px) { .sync-grid { grid-template-columns: 1fr; } }
-  .clash-row { display: grid; grid-template-columns: 130px 90px 1fr 90px; gap: 12px; align-items: center; padding: 8px 6px; border-bottom: 1px solid var(--line); font-size: 12px; }
-  .clash-session { color: var(--text-faint); font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.04em; }
-  .clash-person { font-weight: 700; color: var(--text); }
-  .clash-move { display: flex; align-items: center; gap: 8px; color: var(--text-dim); }
-  .clash-rink { font-family: 'IBM Plex Mono', monospace; font-size: 11px; }
-  .clash-arrow { color: var(--carpet-light); }
-  .clash-gap { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--text-faint); text-align: right; }
-  @media (max-width: 640px) { .clash-row { grid-template-columns: 1fr 1fr; row-gap: 4px; } .clash-move { grid-column: 1 / -1; } }
+  .pill-group { display: flex; gap: 4px; margin-bottom: 4px; }
+  .commentator-pill { font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 700; letter-spacing: 0.03em; padding: 2px 6px; border-radius: 10px; border: 1px solid transparent; }
+  .pill-grey { background: var(--panel-raised); color: var(--text-dim); border-color: var(--line); }
+  .pill-red { background: rgba(228,72,60,0.18); color: var(--live); border-color: rgba(228,72,60,0.5); }
   .sync-card svg { color: var(--carpet-light); margin-bottom: 8px; }
   .ghost-btn { margin-top: 12px; background: transparent; border: 1px dashed var(--line); color: var(--text-faint); font-size: 12px; padding: 8px 12px; border-radius: 6px; width: 100%; }
   code.inline { background: var(--panel-raised); padding: 1px 5px; border-radius: 3px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; }
@@ -1394,14 +1390,14 @@ const NAV = [{
   id: 'schedule',
   label: 'Schedule'
 }, {
+  id: 'clashes',
+  label: 'Clashes'
+}, {
   id: 'rundown',
   label: 'Rundown'
 }, {
   id: 'standings',
   label: 'Standings'
-}, {
-  id: 'clashes',
-  label: 'Clashes'
 }, {
   id: 'sync',
   label: 'Sync'
@@ -1859,114 +1855,137 @@ function Standings({
 // commentator (not their whole two-person team, since pairs aren't fixed)
 // on Rink 1 in one time slot and Rink 4 in the very next slot of the same
 // session, or the reverse — meaning they have to physically move between
-// rinks with no gap in coverage. Everything here is derived live from
+// rinks with no gap in coverage. The list itself is derived live from
 // SCHEDULE via buildCommentatorClashes(), so it stays correct automatically
 // if the rota is ever edited.
-function CommentatorClashes() {
-  const clashes = useMemo(() => buildCommentatorClashes(), []);
-  const byPerson = useMemo(() => {
-    const totals = {};
-    clashes.forEach(c => {
-      totals[c.personName] = (totals[c.personName] || 0) + 1;
+function PersonPill({
+  code,
+  isRed
+}) {
+  return /*#__PURE__*/React.createElement("span", {
+    className: 'commentator-pill ' + (isRed ? 'pill-red' : 'pill-grey'),
+    title: COMMENTATORS[code] || code
+  }, code);
+}
+// Renders one rink's commentator code ("P&B") as separate pills — one per
+// person — rather than a single merged label, since the two-person teams
+// aren't fixed. redKeys is a Set of "session|time|rink|code" strings built
+// for the currently-displayed day; a pill lights up red only if its own
+// session/time/rink/person combination is actually part of a clash.
+function CommentatorPills({
+  tvCode,
+  session,
+  time,
+  rink,
+  redKeys
+}) {
+  if (!tvCode) return /*#__PURE__*/React.createElement("span", {
+    className: "mcell-empty"
+  }, "—");
+  const persons = tvCode.split('&');
+  return /*#__PURE__*/React.createElement("div", {
+    className: "pill-group"
+  }, persons.map(p => /*#__PURE__*/React.createElement(PersonPill, {
+    key: p,
+    code: p,
+    isRed: redKeys.has(session + '|' + time + '|' + rink + '|' + p)
+  })));
+}
+function CommentatorClashes({
+  dayId
+}) {
+  const day = SCHEDULE[dayId];
+  const allClashes = useMemo(() => buildCommentatorClashes(), []);
+  // Every red-pill slot for this specific day, keyed by session name, row
+  // time, rink number, and the person's own initials — so two different
+  // people sharing a two-letter code never light each other up.
+  const redKeys = useMemo(() => {
+    const keys = new Set();
+    allClashes.filter(c => c.day === day.label).forEach(c => {
+      keys.add(c.session + '|' + c.fromTime + '|' + c.fromRink + '|' + c.person);
+      keys.add(c.session + '|' + c.toTime + '|' + c.toRink + '|' + c.person);
     });
-    return Object.entries(totals).sort((a, b) => b[1] - a[1]);
-  }, [clashes]);
-  const byDay = useMemo(() => {
-    const order = [];
-    const totals = {};
-    clashes.forEach(c => {
-      if (!(c.day in totals)) {
-        totals[c.day] = 0;
-        order.push(c.day);
-      }
-      totals[c.day]++;
-    });
-    return order.map(day => [day, totals[day]]);
-  }, [clashes]);
-  const grouped = useMemo(() => {
-    const order = [];
-    const map = {};
-    clashes.forEach(c => {
-      const key = c.day;
-      if (!map[key]) {
-        map[key] = {
-          day: c.day,
-          date: c.date,
-          items: []
-        };
-        order.push(key);
-      }
-      map[key].items.push(c);
-    });
-    return order.map(key => map[key]);
-  }, [clashes]);
+    return keys;
+  }, [allClashes, day]);
+  const daySwitchCount = useMemo(() => allClashes.filter(c => c.day === day.label).length, [allClashes, day]);
   const header = /*#__PURE__*/React.createElement("div", {
-    className: "view-header"
-  }, /*#__PURE__*/React.createElement("div", {
+    className: "view-header sched-header"
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     className: "eyebrow"
-  }, "RINK 1 ⇄ RINK 4 · DERIVED FROM SCHEDULE"), /*#__PURE__*/React.createElement("h2", null, "Commentator Clashes"));
-  const intro = /*#__PURE__*/React.createElement("div", {
+  }, "SEC CENTRE HALL 3 · ", day.label, " · ", day.date), /*#__PURE__*/React.createElement("h2", null, "Commentator Clashes")), /*#__PURE__*/React.createElement("span", {
+    className: "tag " + (daySwitchCount ? "tag-live" : "tag-final")
+  }, daySwitchCount, " rink-switch", daySwitchCount === 1 ? '' : 'es', " today"));
+  const note = day.note && /*#__PURE__*/React.createElement("div", {
+    className: "day-note"
+  }, day.note);
+  const legendNote = /*#__PURE__*/React.createElement("div", {
     className: "panel-note",
     style: {
       marginBottom: 16
     }
-  }, "A clash is one commentator assigned to Rink 1 in one slot and Rink 4 in the very next slot of the same session (or the reverse) — a physical move between rinks with no gap in coverage. ", clashes.length, " clashes across the schedule. Nominal gap between slots runs 85–100 minutes, but the broadcast run-up needs commentary live roughly 5 minutes before the next match starts, so a long match ahead of a switch eats directly into that margin.");
-  const summaryGrid = /*#__PURE__*/React.createElement("div", {
-    className: "sync-grid",
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "commentator-pill pill-red",
     style: {
-      marginBottom: 20
+      marginRight: 6
     }
+  }, "XX"), "= commentating the other world-feed rink in the very next (or previous) slot — a physical move with no gap in coverage.", /*#__PURE__*/React.createElement("br", null), /*#__PURE__*/React.createElement("span", {
+    className: "commentator-pill pill-grey",
+    style: {
+      marginRight: 6,
+      marginTop: 6,
+      display: "inline-block"
+    }
+  }, "XX"), "= no switch at that boundary.");
+  const sessions = day.sessions.map((s, si) => /*#__PURE__*/React.createElement("div", {
+    className: "session-block",
+    key: si
   }, /*#__PURE__*/React.createElement("div", {
-    className: "panel sync-card"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "panel-title"
-  }, "By commentator"), byPerson.map(([name, count]) => /*#__PURE__*/React.createElement("div", {
-    className: "legend-row",
-    key: name
-  }, /*#__PURE__*/React.createElement("b", null, count), " ", name))), /*#__PURE__*/React.createElement("div", {
-    className: "panel sync-card"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "panel-title"
-  }, "By day"), byDay.map(([day, count]) => /*#__PURE__*/React.createElement("div", {
-    className: "legend-row",
-    key: day
-  }, /*#__PURE__*/React.createElement("b", null, count), " ", day))));
-  const dayBlocks = grouped.map(g => {
-    const rows = g.items.map((c, i) => {
-      const move = /*#__PURE__*/React.createElement("span", {
-        className: "clash-move"
-      }, /*#__PURE__*/React.createElement("span", {
-        className: "clash-rink"
-      }, "RINK ", c.fromRink, " ", c.fromTime), /*#__PURE__*/React.createElement("span", {
-        className: "clash-arrow"
-      }, "→"), /*#__PURE__*/React.createElement("span", {
-        className: "clash-rink"
-      }, "RINK ", c.toRink, " ", c.toTime));
-      return /*#__PURE__*/React.createElement("div", {
-        className: "clash-row",
-        key: i
-      }, /*#__PURE__*/React.createElement("span", {
-        className: "clash-session"
-      }, c.session), /*#__PURE__*/React.createElement("span", {
-        className: "clash-person"
-      }, c.personName), move, /*#__PURE__*/React.createElement("span", {
-        className: "clash-gap"
-      }, c.gap, " min gap"));
-    });
-    return /*#__PURE__*/React.createElement("div", {
-      className: "rundown-block",
-      key: g.day
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "rundown-block-title"
-    }, g.day, " · ", g.date), /*#__PURE__*/React.createElement("div", {
-      className: "rundown-block-sub"
-    }, g.items.length, " clash", g.items.length === 1 ? '' : 'es'), rows);
-  });
+    className: "session-title"
+  }, s.name, " ", /*#__PURE__*/React.createElement("span", {
+    className: "session-time"
+  }, s.time)), /*#__PURE__*/React.createElement("div", {
+    className: "session-rowhead"
+  }, /*#__PURE__*/React.createElement("span", null, "TIME"), /*#__PURE__*/React.createElement("span", null, "RINK 1 ", /*#__PURE__*/React.createElement("em", null, "WORLD FEED")), /*#__PURE__*/React.createElement("span", null, "RINK 2"), /*#__PURE__*/React.createElement("span", null, "RINK 3"), /*#__PURE__*/React.createElement("span", null, "RINK 4 ", /*#__PURE__*/React.createElement("em", null, "WORLD FEED"))), s.rows.map((r, ri) => /*#__PURE__*/React.createElement("div", {
+    className: "session-row",
+    key: ri
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "session-row-time"
+  }, r.time), /*#__PURE__*/React.createElement("div", {
+    className: "mcell mcell-tv"
+  }, /*#__PURE__*/React.createElement(CommentatorPills, {
+    tvCode: r.tv1,
+    session: s.name,
+    time: r.time,
+    rink: 1,
+    redKeys: redKeys
+  }), r.matches[0] && /*#__PURE__*/React.createElement("span", {
+    className: 'mcell-disc mcell-disc-' + r.matches[0][0]
+  }, r.matches[0][0]), r.matches[0] && (r.matches[0][1] ? /*#__PURE__*/React.createElement("span", {
+    className: "mcell-teams"
+  }, r.matches[0][1], " v ", r.matches[0][2]) : /*#__PURE__*/React.createElement("span", {
+    className: "mcell-label"
+  }, r.matches[0][2]))), /*#__PURE__*/React.createElement(MatchCell, {
+    m: r.matches[1]
+  }), /*#__PURE__*/React.createElement(MatchCell, {
+    m: r.matches[2]
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "mcell mcell-tv"
+  }, /*#__PURE__*/React.createElement(CommentatorPills, {
+    tvCode: r.tv4,
+    session: s.name,
+    time: r.time,
+    rink: 4,
+    redKeys: redKeys
+  }), r.matches[3] && /*#__PURE__*/React.createElement("span", {
+    className: 'mcell-disc mcell-disc-' + r.matches[3][0]
+  }, r.matches[3][0]), r.matches[3] && (r.matches[3][1] ? /*#__PURE__*/React.createElement("span", {
+    className: "mcell-teams"
+  }, r.matches[3][1], " v ", r.matches[3][2]) : /*#__PURE__*/React.createElement("span", {
+    className: "mcell-label"
+  }, r.matches[3][2])))))));
   return /*#__PURE__*/React.createElement("div", {
     className: "view"
-  }, header, intro, summaryGrid, /*#__PURE__*/React.createElement("div", {
-    className: "section-label"
-  }, "EVERY CLASH, DAY BY DAY"), dayBlocks, /*#__PURE__*/React.createElement("div", {
+  }, header, note, legendNote, sessions, /*#__PURE__*/React.createElement("div", {
     className: "panel-note",
     style: {
       marginTop: 12
@@ -2540,7 +2559,9 @@ function App() {
     dayId: dayId
   }), view === 'rundown' && /*#__PURE__*/React.createElement(Rundown, null), view === 'standings' && /*#__PURE__*/React.createElement(Standings, {
     scores
-  }), view === 'clashes' && /*#__PURE__*/React.createElement(CommentatorClashes, null), view === 'sync' && /*#__PURE__*/React.createElement(Sync, {
+  }), view === 'clashes' && /*#__PURE__*/React.createElement(CommentatorClashes, {
+    dayId: dayId
+  }), view === 'sync' && /*#__PURE__*/React.createElement(Sync, {
     scores
   }))));
 }
