@@ -247,6 +247,14 @@
 
   .sync-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
   @media (max-width: 720px) { .sync-grid { grid-template-columns: 1fr; } }
+  .clash-row { display: grid; grid-template-columns: 130px 90px 1fr 90px; gap: 12px; align-items: center; padding: 8px 6px; border-bottom: 1px solid var(--line); font-size: 12px; }
+  .clash-session { color: var(--text-faint); font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.04em; }
+  .clash-person { font-weight: 700; color: var(--text); }
+  .clash-move { display: flex; align-items: center; gap: 8px; color: var(--text-dim); }
+  .clash-rink { font-family: 'IBM Plex Mono', monospace; font-size: 11px; }
+  .clash-arrow { color: var(--carpet-light); }
+  .clash-gap { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--text-faint); text-align: right; }
+  @media (max-width: 640px) { .clash-row { grid-template-columns: 1fr 1fr; row-gap: 4px; } .clash-move { grid-column: 1 / -1; } }
   .sync-card svg { color: var(--carpet-light); margin-bottom: 8px; }
   .ghost-btn { margin-top: 12px; background: transparent; border: 1px dashed var(--line); color: var(--text-faint); font-size: 12px; padding: 8px 12px; border-radius: 6px; width: 100%; }
   code.inline { background: var(--panel-raised); padding: 1px 5px; border-radius: 3px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; }
@@ -1268,6 +1276,74 @@ function commentatorLabel(code) {
   if (!code) return '';
   return code.split('&').map(c => COMMENTATORS[c] || c).join(' + ');
 }
+function timeToMinutes(t) {
+  const [h, m] = t.split(':').map(Number);
+  return h * 60 + m;
+}
+// A clash is one individual commentator (not their whole two-person team,
+// since pairs aren't fixed) on Rink 1 in one time slot and Rink 4 in the
+// very next slot of the same session, or the reverse — meaning they have
+// to physically move rinks with no gap in coverage. Derived live from
+// SCHEDULE's tv1/tv4 rota, the same source the Schedule tab and Gallery
+// Wall commentator chips already read from, so this stays in sync
+// automatically if the rota ever changes. Only consecutive rows within the
+// same session are compared — an AM/PM split (or a gap day) never counts
+// as "next".
+function buildCommentatorClashes() {
+  const clashes = [];
+  SCHEDULE.forEach(day => {
+    day.sessions.forEach(session => {
+      const rows = session.rows;
+      for (let ri = 0; ri < rows.length - 1; ri++) {
+        const a = rows[ri];
+        const b = rows[ri + 1];
+        if (!a || !b) continue;
+        const gap = timeToMinutes(b.time) - timeToMinutes(a.time);
+        const tv1a = a.tv1 ? a.tv1.split('&') : [];
+        const tv4a = a.tv4 ? a.tv4.split('&') : [];
+        const tv1b = b.tv1 ? b.tv1.split('&') : [];
+        const tv4b = b.tv4 ? b.tv4.split('&') : [];
+        tv1a.forEach(p => {
+          if (tv4b.includes(p)) {
+            clashes.push({
+              day: day.label,
+              date: day.date,
+              session: session.name,
+              person: p,
+              personName: COMMENTATORS[p] || p,
+              fromRink: 1,
+              fromTime: a.time,
+              fromCode: a.tv1,
+              toRink: 4,
+              toTime: b.time,
+              toCode: b.tv4,
+              gap
+            });
+          }
+        });
+        tv4a.forEach(p => {
+          if (tv1b.includes(p)) {
+            clashes.push({
+              day: day.label,
+              date: day.date,
+              session: session.name,
+              person: p,
+              personName: COMMENTATORS[p] || p,
+              fromRink: 4,
+              fromTime: a.time,
+              fromCode: a.tv4,
+              toRink: 1,
+              toTime: b.time,
+              toCode: b.tv1,
+              gap
+            });
+          }
+        });
+      }
+    });
+  });
+  return clashes;
+}
 function defaultScoreState() {
   return {
     status: 'upcoming',
@@ -1323,6 +1399,9 @@ const NAV = [{
 }, {
   id: 'standings',
   label: 'Standings'
+}, {
+  id: 'clashes',
+  label: 'Clashes'
 }, {
   id: 'sync',
   label: 'Sync'
@@ -1775,6 +1854,124 @@ function Standings({
       marginTop: 12
     }
   }, note));
+}
+// Rink-switch clashes for the commentator rota. Definition: one individual
+// commentator (not their whole two-person team, since pairs aren't fixed)
+// on Rink 1 in one time slot and Rink 4 in the very next slot of the same
+// session, or the reverse — meaning they have to physically move between
+// rinks with no gap in coverage. Everything here is derived live from
+// SCHEDULE via buildCommentatorClashes(), so it stays correct automatically
+// if the rota is ever edited.
+function CommentatorClashes() {
+  const clashes = useMemo(() => buildCommentatorClashes(), []);
+  const byPerson = useMemo(() => {
+    const totals = {};
+    clashes.forEach(c => {
+      totals[c.personName] = (totals[c.personName] || 0) + 1;
+    });
+    return Object.entries(totals).sort((a, b) => b[1] - a[1]);
+  }, [clashes]);
+  const byDay = useMemo(() => {
+    const order = [];
+    const totals = {};
+    clashes.forEach(c => {
+      if (!(c.day in totals)) {
+        totals[c.day] = 0;
+        order.push(c.day);
+      }
+      totals[c.day]++;
+    });
+    return order.map(day => [day, totals[day]]);
+  }, [clashes]);
+  const grouped = useMemo(() => {
+    const order = [];
+    const map = {};
+    clashes.forEach(c => {
+      const key = c.day;
+      if (!map[key]) {
+        map[key] = {
+          day: c.day,
+          date: c.date,
+          items: []
+        };
+        order.push(key);
+      }
+      map[key].items.push(c);
+    });
+    return order.map(key => map[key]);
+  }, [clashes]);
+  const header = /*#__PURE__*/React.createElement("div", {
+    className: "view-header"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "eyebrow"
+  }, "RINK 1 ⇄ RINK 4 · DERIVED FROM SCHEDULE"), /*#__PURE__*/React.createElement("h2", null, "Commentator Clashes"));
+  const intro = /*#__PURE__*/React.createElement("div", {
+    className: "panel-note",
+    style: {
+      marginBottom: 16
+    }
+  }, "A clash is one commentator assigned to Rink 1 in one slot and Rink 4 in the very next slot of the same session (or the reverse) — a physical move between rinks with no gap in coverage. ", clashes.length, " clashes across the schedule. Nominal gap between slots runs 85–100 minutes, but the broadcast run-up needs commentary live roughly 5 minutes before the next match starts, so a long match ahead of a switch eats directly into that margin.");
+  const summaryGrid = /*#__PURE__*/React.createElement("div", {
+    className: "sync-grid",
+    style: {
+      marginBottom: 20
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "panel sync-card"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "panel-title"
+  }, "By commentator"), byPerson.map(([name, count]) => /*#__PURE__*/React.createElement("div", {
+    className: "legend-row",
+    key: name
+  }, /*#__PURE__*/React.createElement("b", null, count), " ", name))), /*#__PURE__*/React.createElement("div", {
+    className: "panel sync-card"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "panel-title"
+  }, "By day"), byDay.map(([day, count]) => /*#__PURE__*/React.createElement("div", {
+    className: "legend-row",
+    key: day
+  }, /*#__PURE__*/React.createElement("b", null, count), " ", day))));
+  const dayBlocks = grouped.map(g => {
+    const rows = g.items.map((c, i) => {
+      const move = /*#__PURE__*/React.createElement("span", {
+        className: "clash-move"
+      }, /*#__PURE__*/React.createElement("span", {
+        className: "clash-rink"
+      }, "RINK ", c.fromRink, " ", c.fromTime), /*#__PURE__*/React.createElement("span", {
+        className: "clash-arrow"
+      }, "→"), /*#__PURE__*/React.createElement("span", {
+        className: "clash-rink"
+      }, "RINK ", c.toRink, " ", c.toTime));
+      return /*#__PURE__*/React.createElement("div", {
+        className: "clash-row",
+        key: i
+      }, /*#__PURE__*/React.createElement("span", {
+        className: "clash-session"
+      }, c.session), /*#__PURE__*/React.createElement("span", {
+        className: "clash-person"
+      }, c.personName), move, /*#__PURE__*/React.createElement("span", {
+        className: "clash-gap"
+      }, c.gap, " min gap"));
+    });
+    return /*#__PURE__*/React.createElement("div", {
+      className: "rundown-block",
+      key: g.day
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "rundown-block-title"
+    }, g.day, " · ", g.date), /*#__PURE__*/React.createElement("div", {
+      className: "rundown-block-sub"
+    }, g.items.length, " clash", g.items.length === 1 ? '' : 'es'), rows);
+  });
+  return /*#__PURE__*/React.createElement("div", {
+    className: "view"
+  }, header, intro, summaryGrid, /*#__PURE__*/React.createElement("div", {
+    className: "section-label"
+  }, "EVERY CLASH, DAY BY DAY"), dayBlocks, /*#__PURE__*/React.createElement("div", {
+    className: "panel-note",
+    style: {
+      marginTop: 12
+    }
+  }, "Open questions carried over from the rota: the \u201CSIAN\u201D code appearing from Day 7 onward isn\u2019t in the original commentator key (see the Schedule legend), and Day 7\u2019s two PM session blocks overlap in the source document — both worth confirming with the production team."));
 }
 function MatchCell({
   m,
@@ -2343,7 +2540,7 @@ function App() {
     dayId: dayId
   }), view === 'rundown' && /*#__PURE__*/React.createElement(Rundown, null), view === 'standings' && /*#__PURE__*/React.createElement(Standings, {
     scores
-  }), view === 'sync' && /*#__PURE__*/React.createElement(Sync, {
+  }), view === 'clashes' && /*#__PURE__*/React.createElement(CommentatorClashes, null), view === 'sync' && /*#__PURE__*/React.createElement(Sync, {
     scores
   }))));
 }
