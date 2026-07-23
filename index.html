@@ -239,6 +239,21 @@
   .notes { width: 100%; background: var(--panel-raised); border: 1px solid var(--line); border-radius: 6px; color: var(--text); font-family: 'Manrope', sans-serif; font-size: 13px; padding: 10px; resize: vertical; }
   .notes::placeholder { color: var(--text-faint); }
 
+  .log-entry-form { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
+  .log-input { background: var(--panel-raised); border: 1px solid var(--line); border-radius: 6px; color: var(--text); font-family: 'Manrope', sans-serif; font-size: 13px; padding: 8px 10px; width: 100%; }
+  .log-input::placeholder { color: var(--text-faint); }
+  .log-input-desc { resize: vertical; }
+  .log-rating-row { display: flex; gap: 4px; }
+  .log-rating-btn { background: transparent; border: 1px solid var(--line); color: var(--text-faint); border-radius: 4px; width: 28px; height: 28px; font-size: 14px; }
+  .log-rating-btn-active { color: var(--standby); border-color: var(--standby); }
+  .log-list { display: flex; flex-direction: column; gap: 6px; max-height: 320px; overflow-y: auto; }
+  .log-row { display: flex; align-items: flex-start; gap: 8px; font-size: 12px; color: var(--text-dim); padding: 6px 4px; border-bottom: 1px solid var(--line); }
+  .log-row-tc { font-family: 'IBM Plex Mono', monospace; color: var(--text-faint); flex-shrink: 0; width: 48px; }
+  .log-row-desc { flex: 1; color: var(--text); }
+  .log-row-rating { color: var(--standby); flex-shrink: 0; letter-spacing: 1px; }
+  .log-row-del { background: transparent; border: none; color: var(--text-faint); font-size: 12px; padding: 0 4px; flex-shrink: 0; }
+  .log-row-del:hover { color: var(--live); }
+
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
   thead th { text-align: left; font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.08em; color: var(--text-faint); padding: 8px 10px; border-bottom: 1px solid var(--line); }
   tbody td { padding: 9px 10px; border-bottom: 1px solid var(--line); color: var(--text-dim); }
@@ -1878,6 +1893,105 @@ function RosterPanel({
     className: "panel-note"
   }, "From the Glasgow 2026 official entries list — confirmed at time of entry, but squads can still change before play."));
 }
+// Turns raw digit-typing into HH:MM:SS-style groups as the person types —
+// only digits are kept (colons, letters, anything else typed or pasted is
+// stripped), then grouped in twos: "1" -> "1", "14" -> "14", "143" ->
+// "14:3", "143344" -> "14:33:44". Caps at 6 digits (HH:MM:SS); anything
+// beyond that is ignored rather than silently truncating what's on screen.
+function formatTimecode(raw) {
+  const digits = raw.replace(/\D/g, '').slice(0, 6);
+  const parts = [];
+  for (let i = 0; i < digits.length; i += 2) {
+    parts.push(digits.slice(i, i + 2));
+  }
+  return parts.join(':');
+}
+// Per-match logsheet: timecode, team (or "General"), a free-text note, and
+// a 1-5 star rating. Entries are appended, never edited in place — only
+// deleted and re-added if a producer needs to fix one. Sorted oldest-first
+// internally (so createdAt ordering is stable) but displayed newest-first,
+// since that's what a producer scanning back through a live match wants.
+function LogSheet({
+  match,
+  onAdd,
+  onDelete
+}) {
+  const [timecode, setTimecode] = useState('');
+  const [team, setTeam] = useState('');
+  const [description, setDescription] = useState('');
+  const [rating, setRating] = useState(0);
+  const entries = (match.log || []).slice().sort((a, b) => a.createdAt - b.createdAt);
+  const submit = () => {
+    if (!description.trim()) return;
+    onAdd(match.id, {
+      timecode: timecode.trim(),
+      team: team || null,
+      description: description.trim(),
+      rating
+    });
+    setTimecode('');
+    setDescription('');
+    setRating(0);
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    className: "panel panel-full"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "panel-title"
+  }, "Logsheet"), /*#__PURE__*/React.createElement("div", {
+    className: "log-entry-form"
+  }, /*#__PURE__*/React.createElement("input", {
+    className: "log-input",
+    placeholder: "Timecode — type digits, e.g. 143344",
+    inputMode: "numeric",
+    maxLength: 8,
+    value: timecode,
+    onChange: e => setTimecode(formatTimecode(e.target.value))
+  }), /*#__PURE__*/React.createElement("select", {
+    className: "log-input",
+    value: team,
+    onChange: e => setTeam(e.target.value)
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "General"), /*#__PURE__*/React.createElement("option", {
+    value: match.a
+  }, NATIONS[match.a]?.name || match.a), /*#__PURE__*/React.createElement("option", {
+    value: match.b
+  }, NATIONS[match.b]?.name || match.b)), /*#__PURE__*/React.createElement("textarea", {
+    className: "log-input log-input-desc",
+    placeholder: "What happened...",
+    rows: 2,
+    value: description,
+    onChange: e => setDescription(e.target.value)
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "log-rating-row"
+  }, [1, 2, 3, 4, 5].map(n => /*#__PURE__*/React.createElement("button", {
+    key: n,
+    type: "button",
+    className: 'log-rating-btn ' + (rating >= n ? 'log-rating-btn-active' : ''),
+    onClick: () => setRating(n === rating ? 0 : n)
+  }, "★"))), /*#__PURE__*/React.createElement("button", {
+    className: "ghost-btn",
+    onClick: submit
+  }, "Add entry")), /*#__PURE__*/React.createElement("div", {
+    className: "log-list"
+  }, entries.length === 0 ? /*#__PURE__*/React.createElement("div", {
+    className: "roster-empty"
+  }, "No log entries yet.") : entries.slice().reverse().map(e => /*#__PURE__*/React.createElement("div", {
+    className: "log-row",
+    key: e.id
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "log-row-tc"
+  }, e.timecode || '—'), e.team && /*#__PURE__*/React.createElement(Flag, {
+    code: e.team
+  }), /*#__PURE__*/React.createElement("span", {
+    className: "log-row-desc"
+  }, e.description), e.rating > 0 && /*#__PURE__*/React.createElement("span", {
+    className: "log-row-rating"
+  }, '★'.repeat(e.rating)), /*#__PURE__*/React.createElement("button", {
+    className: "log-row-del",
+    onClick: () => onDelete(match.id, e.id)
+  }, "✕")))));
+}
 function MatchDetail({
   match,
   onBack,
@@ -1885,7 +1999,9 @@ function MatchDetail({
   onSetStatus,
   onNextSet,
   onSelectSet,
-  onNotesChange
+  onNotesChange,
+  onLogAdd,
+  onLogDelete
 }) {
   // Notes are edited locally and flushed to the shared store (Firebase or
   // localStorage, via onNotesChange) a short beat after typing stops —
@@ -1982,7 +2098,11 @@ function MatchDetail({
     onChange: e => setNotesDraft(e.target.value)
   }), /*#__PURE__*/React.createElement("div", {
     className: "panel-note"
-  }, FIREBASE_ENABLED ? 'Synced to Firebase, same as scores.' : 'Saved to this device only (localStorage), same as scores.'))));
+  }, FIREBASE_ENABLED ? 'Synced to Firebase, same as scores.' : 'Saved to this device only (localStorage), same as scores.')), /*#__PURE__*/React.createElement(LogSheet, {
+    match: match,
+    onAdd: onLogAdd,
+    onDelete: onLogDelete
+  })));
 }
 function Standings({
   scores
@@ -2339,6 +2459,59 @@ function App() {
       notes
     });
   };
+  // Logsheet entries are appended, not merged as a whole array, so two
+  // devices logging at the same moment never clobber each other. In
+  // Firebase mode this uses arrayUnion (a server-side append that doesn't
+  // require reading the current array first); the local optimistic update
+  // just mirrors that same append so it shows up immediately, and the
+  // subsequent Firestore snapshot (see the onSnapshot listener above)
+  // reconciles it with whatever the server actually holds. In local-only
+  // mode it's a plain array append, same pattern as everything else here.
+  const addLogEntry = (id, entry) => {
+    const full = {
+      id: `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
+      createdAt: Date.now(),
+      ...entry
+    };
+    if (FIREBASE_ENABLED) {
+      db.collection('matches').doc(id).set({
+        log: firebase.firestore.FieldValue.arrayUnion(full)
+      }, {
+        merge: true
+      });
+    }
+    setScores(prev => {
+      const current = prev[id] || defaultScoreState();
+      return {
+        ...prev,
+        [id]: {
+          ...current,
+          log: [...(current.log || []), full]
+        }
+      };
+    });
+  };
+  const deleteLogEntry = (id, entryId) => {
+    const current = scores[id];
+    if (!current || !current.log) return;
+    const full = current.log.find(e => e.id === entryId);
+    if (!full) return;
+    if (FIREBASE_ENABLED) {
+      db.collection('matches').doc(id).update({
+        log: firebase.firestore.FieldValue.arrayRemove(full)
+      });
+    }
+    setScores(prev => {
+      const cur = prev[id];
+      return {
+        ...prev,
+        [id]: {
+          ...cur,
+          log: cur.log.filter(e => e.id !== entryId)
+        }
+      };
+    });
+  };
   const adjust = (id, side, delta) => {
     const current = scores[id] || defaultScoreState();
     let sets = current.sets;
@@ -2587,7 +2760,9 @@ function App() {
     onSetStatus: setMatchStatus,
     onNextSet: nextSet,
     onSelectSet: selectSet,
-    onNotesChange: setNotes
+    onNotesChange: setNotes,
+    onLogAdd: addLogEntry,
+    onLogDelete: deleteLogEntry
   }), view === 'schedule' && /*#__PURE__*/React.createElement(Schedule, {
     dayId: dayId
   }), view === 'rundown' && /*#__PURE__*/React.createElement(Rundown, null), view === 'standings' && /*#__PURE__*/React.createElement(Standings, {
