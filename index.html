@@ -1520,6 +1520,15 @@ function matchWinner(sets) {
   if (sets.length >= 3) return setWinner(sets[2]);
   return null;
 }
+// Status auto-tracks upcoming -> live as scores are touched, but "final"
+// is a deliberate producer action (the Final button), not inferred from
+// the score — that's what lets a walkover or a match with an odd score
+// still be closed out, and stops a stray score edit from silently
+// reopening a match that's already been marked done.
+function deriveStatus(sets) {
+  if (!sets || !sets.length) return 'upcoming';
+  return 'live';
+}
 const NAV = [{
   id: 'wall',
   label: 'Gallery Wall'
@@ -1645,33 +1654,33 @@ function TileStepper({
     }
   }, "+"));
 }
-// Standby / Live / Next-set (or tiebreaker) / Final controls, inline on the
-// Gallery Wall tile itself — the same transitions the detail view offers,
-// so a producer never has to leave the wall for routine match management.
-function TileStatusControls({
+// The two manual controls left for match progression: advancing to the
+// next set (or starting the tiebreaker, when the first two sets split —
+// canAddSet()/needsTiebreak() already handle that), and marking the match
+// final. Status upcoming/live is still automatic (deriveStatus, as scores
+// are touched); final is the one deliberate action a producer takes.
+function MatchProgressControls({
   match,
-  onSetStatus,
-  onNextSet
+  onNextSet,
+  onToggleFinal
 }) {
-  const stop = fn => e => {
-    e.stopPropagation();
-    fn();
-  };
+  const isFinal = match.status === 'final';
+  const showNextSet = !isFinal && match.sets.length > 0 && canAddSet(match.sets);
   return /*#__PURE__*/React.createElement("div", {
     className: "tile-status-controls"
-  }, /*#__PURE__*/React.createElement("button", {
-    className: 'tile-status-btn ' + (match.status === 'upcoming' ? 'tile-status-btn-active' : ''),
-    onClick: stop(() => onSetStatus(match.id, 'upcoming'))
-  }, "Standby"), /*#__PURE__*/React.createElement("button", {
-    className: 'tile-status-btn ' + (match.status === 'live' ? 'tile-status-btn-active' : ''),
-    onClick: stop(() => onSetStatus(match.id, 'live'))
-  }, "Live"), match.status === 'live' && canAddSet(match.sets) && /*#__PURE__*/React.createElement("button", {
+  }, showNextSet && /*#__PURE__*/React.createElement("button", {
     className: "tile-status-btn",
-    onClick: stop(() => onNextSet(match.id))
+    onClick: e => {
+      e.stopPropagation();
+      onNextSet(match.id);
+    }
   }, needsTiebreak(match.sets) ? 'Tiebreak' : 'Next set'), /*#__PURE__*/React.createElement("button", {
-    className: 'tile-status-btn ' + (match.status === 'final' ? 'tile-status-btn-active' : ''),
-    onClick: stop(() => onSetStatus(match.id, 'final'))
-  }, "Final"));
+    className: 'tile-status-btn ' + (isFinal ? 'tile-status-btn-active' : ''),
+    onClick: e => {
+      e.stopPropagation();
+      onToggleFinal(match.id);
+    }
+  }, isFinal ? 'Reopen' : 'Final'));
 }
 // Lets a producer step between existing sets to view/edit one that isn't
 // the newest — separate from "Next set"/"Tiebreak", which only ever add a
@@ -1707,8 +1716,8 @@ function RinkTile({
   compact,
   onAdjust,
   onSetScore,
-  onSetStatus,
   onNextSet,
+  onToggleFinal,
   onSelectSet
 }) {
   const rest = upcoming || [];
@@ -1766,10 +1775,10 @@ function RinkTile({
       compact: true
     }), winner && /*#__PURE__*/React.createElement("div", {
       className: "tile-winner-note"
-    }, "WINNER: ", NATIONS[winner === 'a' ? match.a : match.b]?.name), onSetStatus && /*#__PURE__*/React.createElement(TileStatusControls, {
+    }, "WINNER: ", NATIONS[winner === 'a' ? match.a : match.b]?.name), onToggleFinal && /*#__PURE__*/React.createElement(MatchProgressControls, {
       match: match,
-      onSetStatus: onSetStatus,
-      onNextSet: onNextSet
+      onNextSet: onNextSet,
+      onToggleFinal: onToggleFinal
     }), /*#__PURE__*/React.createElement(UpcomingList, {
       items: rest,
       onFocus: onFocus
@@ -1797,10 +1806,10 @@ function RinkTile({
     startsIn: match.startsIn
   })), commentatorChip && /*#__PURE__*/React.createElement("div", {
     className: "tile-commentator-row"
-  }, commentatorChip), onSetStatus && /*#__PURE__*/React.createElement(TileStatusControls, {
+  }, commentatorChip), onToggleFinal && /*#__PURE__*/React.createElement(MatchProgressControls, {
     match: match,
-    onSetStatus: onSetStatus,
-    onNextSet: onNextSet
+    onNextSet: onNextSet,
+    onToggleFinal: onToggleFinal
   }), onSelectSet && /*#__PURE__*/React.createElement(SetNav, {
     match: match,
     onSelectSet: onSelectSet
@@ -1996,8 +2005,8 @@ function MatchDetail({
   match,
   onBack,
   onAdjust,
-  onSetStatus,
   onNextSet,
+  onToggleFinal,
   onSelectSet,
   onNotesChange,
   onLogAdd,
@@ -2029,19 +2038,16 @@ function MatchDetail({
     onClick: onBack
   }, "← Gallery Wall"), /*#__PURE__*/React.createElement("div", {
     className: "status-btns"
-  }, /*#__PURE__*/React.createElement("button", {
-    className: 'status-btn ' + (match.status === 'upcoming' ? 'status-btn-active' : ''),
-    onClick: () => onSetStatus(match.id, 'upcoming')
-  }, "Standby"), /*#__PURE__*/React.createElement("button", {
-    className: 'status-btn ' + (match.status === 'live' ? 'status-btn-active' : ''),
-    onClick: () => onSetStatus(match.id, 'live')
-  }, "Go live"), match.status === 'live' && canAddSet(match.sets) && /*#__PURE__*/React.createElement("button", {
+  }, /*#__PURE__*/React.createElement(StatusTag, {
+    status: match.status,
+    startsIn: match.startsIn
+  }), match.status !== 'final' && match.sets.length > 0 && canAddSet(match.sets) && /*#__PURE__*/React.createElement("button", {
     className: "status-btn",
     onClick: () => onNextSet(match.id)
   }, needsTiebreak(match.sets) ? 'Start tiebreaker' : 'Next set'), /*#__PURE__*/React.createElement("button", {
     className: 'status-btn ' + (match.status === 'final' ? 'status-btn-active' : ''),
-    onClick: () => onSetStatus(match.id, 'final')
-  }, "Mark final")), !match.isTV && /*#__PURE__*/React.createElement("div", {
+    onClick: () => onToggleFinal(match.id)
+  }, match.status === 'final' ? 'Reopen match' : 'Mark final')), !match.isTV && /*#__PURE__*/React.createElement("div", {
     className: "venue-only-note"
   }, "Rink ", match.rink, " isn't on the world feed — in-venue only, no broadcast graphics for this match."), /*#__PURE__*/React.createElement("div", {
     className: "detail-panels"
@@ -2473,15 +2479,23 @@ function App() {
       createdAt: Date.now(),
       ...entry
     };
+    const current = scores[id] || defaultScoreState();
     if (FIREBASE_ENABLED) {
+      // Write the full current state alongside the log append — not just
+      // {log: arrayUnion(...)} — so a match that's never had its status/
+      // sets touched yet doesn't get created in Firestore missing those
+      // fields. (A doc created with only `log` would sync back down via
+      // the snapshot listener below and overwrite the local optimistic
+      // state with something missing `sets`, which crashes any tile that
+      // renders it.)
       db.collection('matches').doc(id).set({
+        ...current,
         log: firebase.firestore.FieldValue.arrayUnion(full)
       }, {
         merge: true
       });
     }
     setScores(prev => {
-      const current = prev[id] || defaultScoreState();
       return {
         ...prev,
         [id]: {
@@ -2530,7 +2544,8 @@ function App() {
     writeScore(id, {
       ...current,
       sets,
-      currentSet
+      currentSet,
+      status: current.status === 'final' ? 'final' : deriveStatus(sets)
     });
   };
   // Sets an absolute score for the current set (vs. adjust's relative +/-),
@@ -2554,25 +2569,8 @@ function App() {
     writeScore(id, {
       ...current,
       sets,
-      currentSet
-    });
-  };
-  const setMatchStatus = (id, status) => {
-    const current = scores[id] || defaultScoreState();
-    let sets = current.sets;
-    let currentSet = current.currentSet;
-    if (status === 'live' && sets.length === 0) {
-      sets = [{
-        a: 0,
-        b: 0
-      }];
-      currentSet = 0;
-    }
-    writeScore(id, {
-      ...current,
-      status,
-      sets,
-      currentSet
+      currentSet,
+      status: current.status === 'final' ? 'final' : deriveStatus(sets)
     });
   };
   const nextSet = id => {
@@ -2586,7 +2584,31 @@ function App() {
       ...current,
       sets,
       currentSet: sets.length - 1,
-      status: 'live'
+      status: deriveStatus(sets)
+    });
+  };
+  // The one manual status action left: mark a match final, or reopen one
+  // that was marked final by mistake. Toggling back to "not final" re-runs
+  // deriveStatus so it correctly lands on upcoming/live depending on
+  // whatever score is on record. Initializes a 0-0 set if a match is
+  // finalized with no score yet recorded (e.g. a walkover).
+  const toggleFinal = id => {
+    const current = scores[id] || defaultScoreState();
+    let sets = current.sets;
+    let currentSet = current.currentSet;
+    const goingFinal = current.status !== 'final';
+    if (goingFinal && !sets.length) {
+      sets = [{
+        a: 0,
+        b: 0
+      }];
+      currentSet = 0;
+    }
+    writeScore(id, {
+      ...current,
+      sets,
+      currentSet,
+      status: goingFinal ? 'final' : deriveStatus(sets)
     });
   };
   // Switches which existing set is being viewed/edited, independent of
@@ -2621,7 +2643,8 @@ function App() {
   // not just what comes after the focused match, so focus can move either way.
   const rinkLists = [0, 1, 2, 3].map(rinkIdx => buildRinkSessionMatches(dayId, si, rinkIdx).map(desc => ({
     ...desc,
-    ...(scores[desc.id] || defaultScoreState())
+    ...defaultScoreState(),
+    ...(scores[desc.id] || {})
   })));
   const rinkSlots = rinkLists.map((list, rinkIdx) => {
     if (!list.length) return null;
@@ -2729,8 +2752,8 @@ function App() {
     onOpen: openMatch,
     onFocus: id => focusMatch(rinkIdx, id),
     onAdjust: adjust,
-    onSetStatus: setMatchStatus,
     onNextSet: nextSet,
+    onToggleFinal: toggleFinal,
     onSelectSet: selectSet
   }))), /*#__PURE__*/React.createElement("div", {
     className: "section-label",
@@ -2749,16 +2772,16 @@ function App() {
     onOpen: openMatch,
     onFocus: id => focusMatch(rinkIdx, id),
     onSetScore: setSetScore,
-    onSetStatus: setMatchStatus,
     onNextSet: nextSet,
+    onToggleFinal: toggleFinal,
     onSelectSet: selectSet,
     compact: true
   })))), view === 'detail' && /*#__PURE__*/React.createElement(MatchDetail, {
     match: activeMatch,
     onBack: () => setView('wall'),
     onAdjust: adjust,
-    onSetStatus: setMatchStatus,
     onNextSet: nextSet,
+    onToggleFinal: toggleFinal,
     onSelectSet: selectSet,
     onNotesChange: setNotes,
     onLogAdd: addLogEntry,
