@@ -123,7 +123,18 @@
 
   .team-row { display: flex; align-items: center; gap: 8px; font-size: 13px; margin-bottom: 4px; }
   .flag { font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 500; color: #fff; padding: 2px 5px; border-radius: 3px; letter-spacing: 0.03em; }
-  .team-name { color: var(--text); flex: 1; }
+  .team-name-wrap { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+  .team-name { color: var(--text); }
+  .team-athlete { font-size: 11px; color: var(--text-faint); font-weight: 400; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tile-compact-athletes { font-size: 10px; color: var(--text-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: -2px; }
+  .panel-full { grid-column: 1 / -1; }
+  .roster-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 480px) { .roster-cols { grid-template-columns: 1fr; } }
+  .roster-side-title { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text); margin-bottom: 6px; }
+  .roster-row { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; color: var(--text-dim); padding: 3px 0; }
+  .roster-role { color: var(--text-faint); font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.05em; text-transform: uppercase; flex-shrink: 0; }
+  .roster-name { text-align: right; }
+  .roster-empty { font-size: 12px; color: var(--text-faint); }
 
   .tile-stepper { display: flex; align-items: center; gap: 4px; }
   .tile-stepper button { background: var(--panel-raised); border: 1px solid var(--line); color: var(--text); border-radius: 4px; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 12px; line-height: 1; }
@@ -247,10 +258,6 @@
 
   .sync-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
   @media (max-width: 720px) { .sync-grid { grid-template-columns: 1fr; } }
-  .pill-group { display: flex; gap: 4px; margin-bottom: 4px; }
-  .commentator-pill { font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 700; letter-spacing: 0.03em; padding: 2px 6px; border-radius: 10px; border: 1px solid transparent; }
-  .pill-grey { background: var(--panel-raised); color: var(--text-dim); border-color: var(--line); }
-  .pill-red { background: rgba(228,72,60,0.18); color: var(--live); border-color: rgba(228,72,60,0.5); }
   .sync-card svg { color: var(--carpet-light); margin-bottom: 8px; }
   .ghost-btn { margin-top: 12px; background: transparent; border: 1px dashed var(--line); color: var(--text-faint); font-size: 12px; padding: 8px 12px; border-radius: 6px; width: 100%; }
   code.inline { background: var(--panel-raised); padding: 1px 5px; border-radius: 3px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; }
@@ -426,6 +433,189 @@ const COMMENTATORS = {
   DJ: 'DJ',
   DC: 'David C.'
 };
+// Athlete rosters, keyed by discipline code then nation code (nation codes
+// match NATIONS/SCHEDULE, e.g. JER not JEY, SIN not SGP, NFI not NFK — the
+// official entries list uses IOC-style codes for a few nations that differ
+// from the codes already baked into this file's schedule data).
+// Singles hold a single 'player' name. Pairs disciplines (MP/WP/PMP/PWP)
+// hold 'lead' and 'skip'. Para Mixed Pairs (PXP) additionally holds
+// 'leadDirector' and 'skipDirector' — sighted teammates who direct the
+// vision-impaired lead/skip in the B2–3 category.
+// Source: Glasgow 2026 official entries list (bowls & para bowls),
+// confirmed as at time of entry — squads can still change before play.
+const ROSTERS = {
+  MS: {
+    AUS: { player: 'Aaron Wilson' },
+    BOT: { player: 'Diza Mphotho' },
+    CAN: { player: 'Ryan Bester' },
+    COK: { player: 'Royden Aperau' },
+    ENG: { player: 'Sam Tolchard' },
+    FIJ: { player: 'Rajnesh Prasad' },
+    FLK: { player: 'Cecil Alexander' },
+    GGY: { player: 'Jason Greenslade' },
+    IND: { player: 'Putul Sonowal' },
+    IOM: { player: 'Mark McGreal' },
+    JAM: { player: 'Robert Simpson' },
+    JER: { player: 'Taylor Greechan' },
+    KEN: { player: 'Anwar Hamada' },
+    MAS: { player: 'Izzat Shameer Dzulkeple' },
+    MLT: { player: 'Shaun James Parnis' },
+    NAM: { player: 'Waylon Wentzel' },
+    NFI: { player: 'Mitchell Graham' },
+    NIR: { player: 'Gary Kelly' },
+    NIU: { player: 'Frederrick Tafatu' },
+    NZL: { player: 'Shannon McIlroy' },
+    PAK: { player: 'Mohammed Ayub Qureshi' },
+    RSA: { player: 'Wayne Rittmuller' },
+    SCO: { player: 'Jason Banks' },
+    SIN: { player: 'Harriman Yuen' },
+    TGA: { player: 'Liam Hill' },
+    WAL: { player: 'Ross Owen' }
+  },
+  WS: {
+    AUS: { player: 'Ellen Fife' },
+    BOT: { player: 'Boikhutso Mooketsi' },
+    CAN: { player: 'Kelly McKerihen' },
+    COK: { player: 'Emily Jim' },
+    ENG: { player: 'Katherine Rednall' },
+    FIJ: { player: 'Elizabeth Moceiwai' },
+    FLK: { player: 'Daphne Arthur-Almond' },
+    GGY: { player: 'Ali Merrien' },
+    IND: { player: 'Nayanmoni Saikia' },
+    IOM: { player: 'Caroline Whitehead' },
+    JER: { player: 'Abbey Andrieux' },
+    KEN: { player: 'Eunice Wambui Mbugua' },
+    MAS: { player: 'Emma Firyana Saroji' },
+    MLT: { player: 'Connie-Leigh Rixon' },
+    NAM: { player: 'Diana Viljoen' },
+    NFI: { player: 'Shae Wilson' },
+    NIR: { player: "Shauna O'Neill" },
+    NIU: { player: 'Catherine Papani' },
+    NZL: { player: 'Tayla Bruce' },
+    RSA: { player: 'Bridget Herselman' },
+    SCO: { player: 'Sophie McGrouther' },
+    SIN: { player: 'Serena Tiong' },
+    TGA: { player: 'Milika Nathan' },
+    WAL: { player: 'Amy Williams' },
+    ZAM: { player: 'Mildred Mkandawire' }
+  },
+  MP: {
+    AUS: { lead: 'Corey Wedlock', skip: 'Aaron Teys' },
+    BOT: { lead: 'Kaizer Geche', skip: 'Charles Diteko' },
+    CAN: { lead: 'John Bezear', skip: 'Ryan Bester' },
+    COK: { lead: 'Epii Poila', skip: 'Jason Lindsay' },
+    ENG: { lead: 'Nick Brett', skip: 'Jamie Walker' },
+    FIJ: { lead: 'Lal Chand Prasad', skip: 'Surendra Prasad' },
+    FLK: { lead: 'Ian Barnes', skip: 'Oliver Thompson' },
+    GGY: { lead: 'Ian Merrien', skip: 'Jason Greenslade' },
+    IND: { lead: 'Navneet Singh', skip: 'Dinesh Kumar' },
+    IOM: { lead: 'Michael Collister', skip: 'Mark McGreal' },
+    JER: { lead: 'Ross Davis', skip: 'Malcolm de Sousa' },
+    KEN: { lead: 'Chris Kimanga', skip: 'Anwar Hamada' },
+    MAS: { lead: 'Amirul Danial Abdul Rahim', skip: 'Mohammad Soufi Rusli' },
+    MLT: { lead: 'Troy Lorimer', skip: 'Shaun James Parnis' },
+    NAM: { lead: 'Christo Steenkamp', skip: 'Waylon Wentzel' },
+    NFI: { lead: 'Jeht Nobbs', skip: 'Michael Trickey' },
+    NIR: { lead: 'Adam McKeown', skip: 'Gary Kelly' },
+    NIU: { lead: 'Tifaga Tupuiliu', skip: 'Keith Papani' },
+    NZL: { lead: 'Tony Grantham', skip: 'Ali Forsyth' },
+    PAK: { lead: 'Maqsood Waseem Khan', skip: 'Mohammed Ayub Qureshi' },
+    RSA: { lead: 'Jason Evans', skip: 'Paul White' },
+    SCO: { lead: 'Paul Foster MBE', skip: 'Alex Marshall MBE' },
+    TGA: { lead: 'Chad Nathan', skip: 'Liam Hill' },
+    WAL: { lead: 'Daniel Salmon', skip: 'Ross Owen' }
+  },
+  WP: {
+    AUS: { lead: 'Dawn Hayman', skip: 'Kelsey Cottrell' },
+    BOT: { lead: 'Chinky Sinombe', skip: 'Mpopi Pelemo' },
+    CAN: { lead: 'Emma Boyd', skip: 'Kelly McKerihen' },
+    COK: { lead: "Fa'amanatu Vasie Ngatoko-Poila", skip: 'Teokotai Rahui Jim' },
+    ENG: { lead: 'Amy Pharaoh', skip: 'Sian Honnor' },
+    FIJ: { lead: 'Losalini Tukai', skip: 'Litia Tikoisuva' },
+    FLK: { lead: 'Sharon Barnes', skip: 'Kristiane Thorsen' },
+    GGY: { lead: 'Rose Ogier', skip: 'Ali Merrien' },
+    IND: { lead: 'Rupa Rani Tirkey', skip: 'Pinki' },
+    IOM: { lead: 'Caroline Whitehead', skip: 'Paula Garrett' },
+    JER: { lead: 'Sara Douglas', skip: 'Fiona Archibald' },
+    KEN: { lead: 'Nancy Cheruiyot', skip: 'Eunice Wambui Mbugua' },
+    MAS: { lead: 'Aleena Ahmad Nawawi', skip: 'Syafiqa Haidar Afif Abdul Rahman' },
+    MLT: { lead: 'Rebecca Louise Rixon', skip: 'Connie-Leigh Rixon' },
+    NAM: { lead: 'Amanda Steenkamp', skip: 'Diana Viljoen' },
+    NFI: { lead: 'Ellie Dixon', skip: 'Christine Jones' },
+    NIR: { lead: 'Chloe Wilson', skip: "Shauna O'Neill" },
+    NIU: { lead: 'Catherine Papani', skip: 'Christine Ioane' },
+    NZL: { lead: 'Selina Goddard', skip: 'Katelyn Inch' },
+    RSA: { lead: 'Thabelo Muvhango', skip: 'Jacqui Janse van Rensburg' },
+    SCO: { lead: 'Beth Riva', skip: 'Caroline Brown' },
+    SIN: { lead: 'Janice Tan', skip: 'Ai Lin Cheo' },
+    TGA: { lead: 'Paris Baker', skip: 'Milika Nathan' },
+    WAL: { lead: 'Lauren Gowen', skip: 'Amy Williams' },
+    ZAM: { lead: 'Getrude Siame', skip: 'Foster Banda' }
+  },
+  PMP: {
+    AUS: { lead: 'Damien Delgado', skip: 'James Reynolds' },
+    ENG: { lead: 'Joe Peplow', skip: 'Kieran Rollings' },
+    NZL: { lead: 'Kurt Smith', skip: 'Mark Noble' },
+    RSA: { lead: 'Gareth Rees-Gibbs', skip: 'Jarid James' },
+    SCO: { lead: 'Garry Brown', skip: 'Stuart Sloan' },
+    SIN: { lead: 'Mawjit Singh Gurmet Singh', skip: 'Khirmern Bin Mohamad' }
+  },
+  PWP: {
+    AUS: { lead: 'Louise Hoskins', skip: 'Serena Bonnell' },
+    CAN: { lead: 'Jean Stairs', skip: 'Anne Hibberd' },
+    ENG: { lead: 'Michelle White', skip: 'Helen Wood' },
+    MAS: { lead: 'Norazian Daud', skip: 'Jariah Zakaria' },
+    NZL: { lead: "Julie O'Connell", skip: 'Teri Blackbourn' },
+    SCO: { lead: 'Mary Wilson', skip: 'Pauline Wilson' }
+  },
+  PXP: {
+    AUS: { lead: 'Jacqueline Hudson', leadDirector: 'Claire Turley', skip: 'Jake Fehlberg', skipDirector: 'Karen Murphy' },
+    ENG: { lead: 'Ron Homer', leadDirector: 'Sue Davies', skip: 'Sally-Ann Lewis-Wall', skipDirector: 'Elizabeth Shipley' },
+    NZL: { lead: 'Sonya Woodrow', leadDirector: 'Kimberly Carraher', skip: 'Kerrin Wheeler', skipDirector: 'Colin Wheeler' },
+    RSA: { lead: 'Princess Schroeder', leadDirector: 'Graham Ward', skip: 'Keith Orrell', skipDirector: 'Trevor Freeman' },
+    SCO: { lead: 'Mary Stevenson', leadDirector: 'James Aitken', skip: 'Robert Barr', skipDirector: 'Sarah-Jane Ewing' },
+    WAL: { lead: 'Julie Thomas', leadDirector: 'Jamie Jones', skip: 'Steffan James', skipDirector: 'John Wilson' }
+  }
+};
+// Short line for a tile: "Player" for singles, "Lead & Skip" for pairs and
+// para pairs (directors omitted here — see athleteRoster() for the full
+// breakdown used in the match detail view). Returns '' if no roster entry
+// exists for this discipline/nation (squad not yet confirmed, or a nation
+// not entered in that discipline).
+function athleteLine(disciplineCode, nationCode) {
+  const entry = ROSTERS[disciplineCode] && ROSTERS[disciplineCode][nationCode];
+  if (!entry) return '';
+  if (entry.player) return entry.player;
+  if (entry.lead && entry.skip) return `${entry.lead} & ${entry.skip}`;
+  return '';
+}
+// Full role-by-role breakdown for the match detail view — includes
+// directors for Para Mixed Pairs, which athleteLine() leaves out for space.
+function athleteRoster(disciplineCode, nationCode) {
+  const entry = ROSTERS[disciplineCode] && ROSTERS[disciplineCode][nationCode];
+  if (!entry) return [];
+  if (entry.player) return [{
+    role: '',
+    name: entry.player
+  }];
+  const rows = [{
+    role: 'Lead',
+    name: entry.lead
+  }];
+  if (entry.leadDirector) rows.push({
+    role: 'Lead Director',
+    name: entry.leadDirector
+  });
+  rows.push({
+    role: 'Skip',
+    name: entry.skip
+  });
+  if (entry.skipDirector) rows.push({
+    role: 'Skip Director',
+    name: entry.skipDirector
+  });
+  return rows;
+}
 const DAYS = [{
   id: 0,
   label: 'DAY 0',
@@ -1272,74 +1462,6 @@ function commentatorLabel(code) {
   if (!code) return '';
   return code.split('&').map(c => COMMENTATORS[c] || c).join(' + ');
 }
-function timeToMinutes(t) {
-  const [h, m] = t.split(':').map(Number);
-  return h * 60 + m;
-}
-// A clash is one individual commentator (not their whole two-person team,
-// since pairs aren't fixed) on Rink 1 in one time slot and Rink 4 in the
-// very next slot of the same session, or the reverse — meaning they have
-// to physically move rinks with no gap in coverage. Derived live from
-// SCHEDULE's tv1/tv4 rota, the same source the Schedule tab and Gallery
-// Wall commentator chips already read from, so this stays in sync
-// automatically if the rota ever changes. Only consecutive rows within the
-// same session are compared — an AM/PM split (or a gap day) never counts
-// as "next".
-function buildCommentatorClashes() {
-  const clashes = [];
-  SCHEDULE.forEach(day => {
-    day.sessions.forEach(session => {
-      const rows = session.rows;
-      for (let ri = 0; ri < rows.length - 1; ri++) {
-        const a = rows[ri];
-        const b = rows[ri + 1];
-        if (!a || !b) continue;
-        const gap = timeToMinutes(b.time) - timeToMinutes(a.time);
-        const tv1a = a.tv1 ? a.tv1.split('&') : [];
-        const tv4a = a.tv4 ? a.tv4.split('&') : [];
-        const tv1b = b.tv1 ? b.tv1.split('&') : [];
-        const tv4b = b.tv4 ? b.tv4.split('&') : [];
-        tv1a.forEach(p => {
-          if (tv4b.includes(p)) {
-            clashes.push({
-              day: day.label,
-              date: day.date,
-              session: session.name,
-              person: p,
-              personName: COMMENTATORS[p] || p,
-              fromRink: 1,
-              fromTime: a.time,
-              fromCode: a.tv1,
-              toRink: 4,
-              toTime: b.time,
-              toCode: b.tv4,
-              gap
-            });
-          }
-        });
-        tv4a.forEach(p => {
-          if (tv1b.includes(p)) {
-            clashes.push({
-              day: day.label,
-              date: day.date,
-              session: session.name,
-              person: p,
-              personName: COMMENTATORS[p] || p,
-              fromRink: 4,
-              fromTime: a.time,
-              fromCode: a.tv4,
-              toRink: 1,
-              toTime: b.time,
-              toCode: b.tv1,
-              gap
-            });
-          }
-        });
-      }
-    });
-  });
-  return clashes;
-}
 function defaultScoreState() {
   return {
     status: 'upcoming',
@@ -1389,9 +1511,6 @@ const NAV = [{
 }, {
   id: 'schedule',
   label: 'Schedule'
-}, {
-  id: 'clashes',
-  label: 'Clashes'
 }, {
   id: 'rundown',
   label: 'Rundown'
@@ -1622,7 +1741,9 @@ function RinkTile({
     }), match.b)), scoreEdit, /*#__PURE__*/React.createElement(StatusTag, {
       status: match.status,
       startsIn: match.startsIn
-    })), onSelectSet && /*#__PURE__*/React.createElement(SetNav, {
+    })), (athleteLine(match.disciplineCode, match.a) || athleteLine(match.disciplineCode, match.b)) && /*#__PURE__*/React.createElement("div", {
+      className: "tile-compact-athletes"
+    }, [athleteLine(match.disciplineCode, match.a), athleteLine(match.disciplineCode, match.b)].filter(Boolean).join(' v ')), onSelectSet && /*#__PURE__*/React.createElement(SetNav, {
       match: match,
       onSelectSet: onSelectSet
     }), /*#__PURE__*/React.createElement(ScoreLine, {
@@ -1677,8 +1798,12 @@ function RinkTile({
   }, /*#__PURE__*/React.createElement(Flag, {
     code: match.a
   }), /*#__PURE__*/React.createElement("span", {
+    className: "team-name-wrap"
+  }, /*#__PURE__*/React.createElement("span", {
     className: "team-name"
-  }, NATIONS[match.a]?.name), winner === 'a' && /*#__PURE__*/React.createElement("span", {
+  }, NATIONS[match.a]?.name), athleteLine(match.disciplineCode, match.a) && /*#__PURE__*/React.createElement("span", {
+    className: "team-athlete"
+  }, athleteLine(match.disciplineCode, match.a))), winner === 'a' && /*#__PURE__*/React.createElement("span", {
     className: "tag tag-winner"
   }, "WINNER"), onAdjust && /*#__PURE__*/React.createElement(TileStepper, {
     value: set.a,
@@ -1689,8 +1814,12 @@ function RinkTile({
   }, /*#__PURE__*/React.createElement(Flag, {
     code: match.b
   }), /*#__PURE__*/React.createElement("span", {
+    className: "team-name-wrap"
+  }, /*#__PURE__*/React.createElement("span", {
     className: "team-name"
-  }, NATIONS[match.b]?.name), winner === 'b' && /*#__PURE__*/React.createElement("span", {
+  }, NATIONS[match.b]?.name), athleteLine(match.disciplineCode, match.b) && /*#__PURE__*/React.createElement("span", {
+    className: "team-athlete"
+  }, athleteLine(match.disciplineCode, match.b))), winner === 'b' && /*#__PURE__*/React.createElement("span", {
     className: "tag tag-winner"
   }, "WINNER"), onAdjust && /*#__PURE__*/React.createElement(TileStepper, {
     value: set.b,
@@ -1705,6 +1834,49 @@ function RinkTile({
     items: rest,
     onFocus: onFocus
   }));
+}
+// One nation's column in the detail view's Players panel — role-by-role
+// (Lead/Skip, plus directors for Para Mixed Pairs), or a single unlabelled
+// row for singles. Falls back to a plain note if no roster entry exists
+// yet (squad not confirmed, or this nation isn't entered in this discipline).
+function RosterSide({
+  code,
+  disciplineCode
+}) {
+  const rows = athleteRoster(disciplineCode, code);
+  return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    className: "roster-side-title"
+  }, /*#__PURE__*/React.createElement(Flag, {
+    code: code
+  }), NATIONS[code]?.name), rows.length ? rows.map((r, i) => /*#__PURE__*/React.createElement("div", {
+    className: "roster-row",
+    key: i
+  }, r.role && /*#__PURE__*/React.createElement("span", {
+    className: "roster-role"
+  }, r.role), /*#__PURE__*/React.createElement("span", {
+    className: "roster-name"
+  }, r.name))) : /*#__PURE__*/React.createElement("div", {
+    className: "roster-empty"
+  }, "No roster on file for this nation/discipline yet."));
+}
+function RosterPanel({
+  match
+}) {
+  return /*#__PURE__*/React.createElement("div", {
+    className: "panel panel-full"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "panel-title"
+  }, "Players"), /*#__PURE__*/React.createElement("div", {
+    className: "roster-cols"
+  }, /*#__PURE__*/React.createElement(RosterSide, {
+    code: match.a,
+    disciplineCode: match.disciplineCode
+  }), /*#__PURE__*/React.createElement(RosterSide, {
+    code: match.b,
+    disciplineCode: match.disciplineCode
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "panel-note"
+  }, "From the Glasgow 2026 official entries list — confirmed at time of entry, but squads can still change before play."));
 }
 function MatchDetail({
   match,
@@ -1757,7 +1929,9 @@ function MatchDetail({
     className: "venue-only-note"
   }, "Rink ", match.rink, " isn't on the world feed — in-venue only, no broadcast graphics for this match."), /*#__PURE__*/React.createElement("div", {
     className: "detail-panels"
-  }, /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement(RosterPanel, {
+    match: match
+  }), /*#__PURE__*/React.createElement("div", {
     className: "panel"
   }, /*#__PURE__*/React.createElement("div", {
     className: "panel-title"
@@ -1850,147 +2024,6 @@ function Standings({
       marginTop: 12
     }
   }, note));
-}
-// Rink-switch clashes for the commentator rota. Definition: one individual
-// commentator (not their whole two-person team, since pairs aren't fixed)
-// on Rink 1 in one time slot and Rink 4 in the very next slot of the same
-// session, or the reverse — meaning they have to physically move between
-// rinks with no gap in coverage. The list itself is derived live from
-// SCHEDULE via buildCommentatorClashes(), so it stays correct automatically
-// if the rota is ever edited.
-function PersonPill({
-  code,
-  isRed
-}) {
-  return /*#__PURE__*/React.createElement("span", {
-    className: 'commentator-pill ' + (isRed ? 'pill-red' : 'pill-grey'),
-    title: COMMENTATORS[code] || code
-  }, code);
-}
-// Renders one rink's commentator code ("P&B") as separate pills — one per
-// person — rather than a single merged label, since the two-person teams
-// aren't fixed. redKeys is a Set of "session|time|rink|code" strings built
-// for the currently-displayed day; a pill lights up red only if its own
-// session/time/rink/person combination is actually part of a clash.
-function CommentatorPills({
-  tvCode,
-  session,
-  time,
-  rink,
-  redKeys
-}) {
-  if (!tvCode) return /*#__PURE__*/React.createElement("span", {
-    className: "mcell-empty"
-  }, "—");
-  const persons = tvCode.split('&');
-  return /*#__PURE__*/React.createElement("div", {
-    className: "pill-group"
-  }, persons.map(p => /*#__PURE__*/React.createElement(PersonPill, {
-    key: p,
-    code: p,
-    isRed: redKeys.has(session + '|' + time + '|' + rink + '|' + p)
-  })));
-}
-function CommentatorClashes({
-  dayId
-}) {
-  const day = SCHEDULE[dayId];
-  const allClashes = useMemo(() => buildCommentatorClashes(), []);
-  // Every red-pill slot for this specific day, keyed by session name, row
-  // time, rink number, and the person's own initials — so two different
-  // people sharing a two-letter code never light each other up.
-  const redKeys = useMemo(() => {
-    const keys = new Set();
-    allClashes.filter(c => c.day === day.label).forEach(c => {
-      keys.add(c.session + '|' + c.fromTime + '|' + c.fromRink + '|' + c.person);
-      keys.add(c.session + '|' + c.toTime + '|' + c.toRink + '|' + c.person);
-    });
-    return keys;
-  }, [allClashes, day]);
-  const daySwitchCount = useMemo(() => allClashes.filter(c => c.day === day.label).length, [allClashes, day]);
-  const header = /*#__PURE__*/React.createElement("div", {
-    className: "view-header sched-header"
-  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-    className: "eyebrow"
-  }, "SEC CENTRE HALL 3 · ", day.label, " · ", day.date), /*#__PURE__*/React.createElement("h2", null, "Commentator Clashes")), /*#__PURE__*/React.createElement("span", {
-    className: "tag " + (daySwitchCount ? "tag-live" : "tag-final")
-  }, daySwitchCount, " rink-switch", daySwitchCount === 1 ? '' : 'es', " today"));
-  const note = day.note && /*#__PURE__*/React.createElement("div", {
-    className: "day-note"
-  }, day.note);
-  const legendNote = /*#__PURE__*/React.createElement("div", {
-    className: "panel-note",
-    style: {
-      marginBottom: 16
-    }
-  }, /*#__PURE__*/React.createElement("span", {
-    className: "commentator-pill pill-red",
-    style: {
-      marginRight: 6
-    }
-  }, "XX"), "= commentating the other world-feed rink in the very next (or previous) slot — a physical move with no gap in coverage.", /*#__PURE__*/React.createElement("br", null), /*#__PURE__*/React.createElement("span", {
-    className: "commentator-pill pill-grey",
-    style: {
-      marginRight: 6,
-      marginTop: 6,
-      display: "inline-block"
-    }
-  }, "XX"), "= no switch at that boundary.");
-  const sessions = day.sessions.map((s, si) => /*#__PURE__*/React.createElement("div", {
-    className: "session-block",
-    key: si
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "session-title"
-  }, s.name, " ", /*#__PURE__*/React.createElement("span", {
-    className: "session-time"
-  }, s.time)), /*#__PURE__*/React.createElement("div", {
-    className: "session-rowhead"
-  }, /*#__PURE__*/React.createElement("span", null, "TIME"), /*#__PURE__*/React.createElement("span", null, "RINK 1 ", /*#__PURE__*/React.createElement("em", null, "WORLD FEED")), /*#__PURE__*/React.createElement("span", null, "RINK 2"), /*#__PURE__*/React.createElement("span", null, "RINK 3"), /*#__PURE__*/React.createElement("span", null, "RINK 4 ", /*#__PURE__*/React.createElement("em", null, "WORLD FEED"))), s.rows.map((r, ri) => /*#__PURE__*/React.createElement("div", {
-    className: "session-row",
-    key: ri
-  }, /*#__PURE__*/React.createElement("span", {
-    className: "session-row-time"
-  }, r.time), /*#__PURE__*/React.createElement("div", {
-    className: "mcell mcell-tv"
-  }, /*#__PURE__*/React.createElement(CommentatorPills, {
-    tvCode: r.tv1,
-    session: s.name,
-    time: r.time,
-    rink: 1,
-    redKeys: redKeys
-  }), r.matches[0] && /*#__PURE__*/React.createElement("span", {
-    className: 'mcell-disc mcell-disc-' + r.matches[0][0]
-  }, r.matches[0][0]), r.matches[0] && (r.matches[0][1] ? /*#__PURE__*/React.createElement("span", {
-    className: "mcell-teams"
-  }, r.matches[0][1], " v ", r.matches[0][2]) : /*#__PURE__*/React.createElement("span", {
-    className: "mcell-label"
-  }, r.matches[0][2]))), /*#__PURE__*/React.createElement(MatchCell, {
-    m: r.matches[1]
-  }), /*#__PURE__*/React.createElement(MatchCell, {
-    m: r.matches[2]
-  }), /*#__PURE__*/React.createElement("div", {
-    className: "mcell mcell-tv"
-  }, /*#__PURE__*/React.createElement(CommentatorPills, {
-    tvCode: r.tv4,
-    session: s.name,
-    time: r.time,
-    rink: 4,
-    redKeys: redKeys
-  }), r.matches[3] && /*#__PURE__*/React.createElement("span", {
-    className: 'mcell-disc mcell-disc-' + r.matches[3][0]
-  }, r.matches[3][0]), r.matches[3] && (r.matches[3][1] ? /*#__PURE__*/React.createElement("span", {
-    className: "mcell-teams"
-  }, r.matches[3][1], " v ", r.matches[3][2]) : /*#__PURE__*/React.createElement("span", {
-    className: "mcell-label"
-  }, r.matches[3][2])))))));
-  return /*#__PURE__*/React.createElement("div", {
-    className: "view"
-  }, header, note, legendNote, sessions, /*#__PURE__*/React.createElement("div", {
-    className: "panel-note",
-    style: {
-      marginTop: 12
-    }
-  }, "Open questions carried over from the rota: the \u201CSIAN\u201D code appearing from Day 7 onward isn\u2019t in the original commentator key (see the Schedule legend), and Day 7\u2019s two PM session blocks overlap in the source document — both worth confirming with the production team."));
 }
 function MatchCell({
   m,
@@ -2559,8 +2592,6 @@ function App() {
     dayId: dayId
   }), view === 'rundown' && /*#__PURE__*/React.createElement(Rundown, null), view === 'standings' && /*#__PURE__*/React.createElement(Standings, {
     scores
-  }), view === 'clashes' && /*#__PURE__*/React.createElement(CommentatorClashes, {
-    dayId: dayId
   }), view === 'sync' && /*#__PURE__*/React.createElement(Sync, {
     scores
   }))));
