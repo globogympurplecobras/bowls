@@ -246,6 +246,7 @@
   .log-input-row { display: flex; gap: 8px; }
   .log-input-tc { flex: 1.4; }
   .log-input-set { flex: 1; }
+  .log-input-clip { flex: 0.9; }
   .log-rating-row { display: flex; gap: 4px; }
   .log-rating-btn { background: transparent; border: 1px solid var(--line); color: var(--text-faint); border-radius: 4px; width: 28px; height: 28px; font-size: 14px; }
   .log-rating-btn-active { color: var(--standby); border-color: var(--standby); }
@@ -334,6 +335,7 @@
   .tag-toggle-active { background: var(--standby); border-color: var(--standby); color: #1A1400; }
   .log-row-tags { display: flex; gap: 4px; flex-shrink: 0; }
   .log-tag-chip { font-family: 'IBM Plex Mono', monospace; font-size: 9px; letter-spacing: 0.05em; background: rgba(232,163,61,0.18); color: var(--standby); padding: 2px 6px; border-radius: 3px; }
+  .log-tag-chip-final { background: rgba(255,107,94,0.18); color: var(--live); }
 
   /* -- Daily Log -- */
   .dailylog-row { padding: 12px 10px; border-bottom: 1px solid var(--line); }
@@ -345,6 +347,7 @@
   .dailylog-entry:first-of-type { border-top: none; }
   .dailylog-body { display: flex; align-items: baseline; gap: 10px; font-size: 13px; flex-wrap: wrap; }
   .dailylog-set { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--carpet-light); background: rgba(58,160,214,0.14); border-radius: 4px; padding: 2px 6px; flex-shrink: 0; }
+  .dailylog-clip { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--text-faint); background: var(--panel-raised); border: 1px solid var(--line); border-radius: 4px; padding: 2px 6px; flex-shrink: 0; }
   .dailylog-tc { font-family: 'IBM Plex Mono', monospace; color: var(--text-faint); flex-shrink: 0; white-space: nowrap; }
   .dailylog-desc { color: var(--text); flex: 1; }
   .dailylog-rating { color: var(--standby); letter-spacing: 1px; flex-shrink: 0; }
@@ -2069,6 +2072,7 @@ function LogSheet({
   const [timecode, setTimecode] = useState('');
   const [setLabel, setSetLabel] = useState(defaultSetLabel);
   const [setLabelTouched, setSetLabelTouched] = useState(false);
+  const [clipNumber, setClipNumber] = useState('');
   const [description, setDescription] = useState('');
   const [rating, setRating] = useState(0);
   const [bestOfSet, setBestOfSet] = useState(false);
@@ -2085,6 +2089,7 @@ function LogSheet({
     setTimecode('');
     setSetLabel(defaultSetLabel);
     setSetLabelTouched(false);
+    setClipNumber('');
     setDescription('');
     setRating(0);
     setBestOfSet(false);
@@ -2095,6 +2100,7 @@ function LogSheet({
     setTimecode(e.timecode || '');
     setSetLabel(e.setLabel || defaultSetLabel);
     setSetLabelTouched(true);
+    setClipNumber(e.clipNumber || '');
     setDescription(e.description || '');
     setRating(e.rating || 0);
     setBestOfSet(!!e.bestOfSet);
@@ -2105,6 +2111,7 @@ function LogSheet({
     const payload = {
       timecode: timecode.trim(),
       setLabel: setLabel.trim(),
+      clipNumber: clipNumber.trim(),
       description: description.trim(),
       rating,
       bestOfSet,
@@ -2140,6 +2147,11 @@ function LogSheet({
       setSetLabelTouched(true);
       setSetLabel(e.target.value);
     }
+  }), /*#__PURE__*/React.createElement("input", {
+    className: "log-input log-input-clip",
+    placeholder: "Clip #",
+    value: clipNumber,
+    onChange: e => setClipNumber(e.target.value)
   })), /*#__PURE__*/React.createElement("textarea", {
     className: "log-input log-input-desc",
     placeholder: "What happened... (Enter to add, Shift+Enter for a new line)",
@@ -2332,16 +2344,18 @@ function DailyLog({
     className: "dailylog-tc"
   }, entry.timecode || '—'), entry.setLabel && /*#__PURE__*/React.createElement("span", {
     className: "dailylog-set"
-  }, entry.setLabel), /*#__PURE__*/React.createElement("span", {
+  }, entry.setLabel), entry.clipNumber && /*#__PURE__*/React.createElement("span", {
+    className: "dailylog-clip"
+  }, "CLIP ", entry.clipNumber), /*#__PURE__*/React.createElement("span", {
     className: "dailylog-desc"
-  }, entry.description), entry.rating > 0 && /*#__PURE__*/React.createElement("span", {
+  }, entry.description), entry.bestOfSet && /*#__PURE__*/React.createElement("span", {
+    className: "log-tag-chip"
+  }, "BEST OF SET"), entry.rating > 0 && /*#__PURE__*/React.createElement("span", {
     className: "dailylog-rating"
-  }, '★'.repeat(entry.rating))), /*#__PURE__*/React.createElement("div", {
+  }, '★'.repeat(entry.rating))), entry.finalBowl && /*#__PURE__*/React.createElement("div", {
     className: "log-row-tags"
-  }, entry.bestOfSet && /*#__PURE__*/React.createElement("span", {
-    className: "log-tag-chip"
-  }, "BEST OF SET"), entry.finalBowl && /*#__PURE__*/React.createElement("span", {
-    className: "log-tag-chip"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "log-tag-chip log-tag-chip-final"
   }, "FINAL BOWL")))))));
 }
 function MatchCell({
