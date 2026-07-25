@@ -2973,7 +2973,7 @@ function App() {
   // Rinks 2 & 3 (in-venue only, not on the world feed) aren't tracked on
   // the Gallery Wall at all any more — only the two world-feed rinks are
   // relevant here. They're still fully visible on the Schedule tab.
-  const tvSlots = [0, 3].map(rinkIdx => ({
+  const tvSlots = [3, 0].map(rinkIdx => ({
     rinkIdx,
     slot: rinkSlots[rinkIdx]
   })).filter(x => x.slot);
