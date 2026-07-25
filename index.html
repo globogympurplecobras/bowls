@@ -243,14 +243,24 @@
   .log-input { background: var(--panel-raised); border: 1px solid var(--line); border-radius: 6px; color: var(--text); font-family: 'Manrope', sans-serif; font-size: 13px; padding: 8px 10px; width: 100%; }
   .log-input::placeholder { color: var(--text-faint); }
   .log-input-desc { resize: vertical; }
+  .log-input-row { display: flex; gap: 8px; }
+  .log-input-tc { flex: 1.4; }
+  .log-input-set { flex: 1; }
   .log-rating-row { display: flex; gap: 4px; }
   .log-rating-btn { background: transparent; border: 1px solid var(--line); color: var(--text-faint); border-radius: 4px; width: 28px; height: 28px; font-size: 14px; }
   .log-rating-btn-active { color: var(--standby); border-color: var(--standby); }
+  .log-form-actions { display: flex; gap: 8px; }
+  .log-form-actions .ghost-btn { flex: 1; }
+  .ghost-btn-muted { color: var(--text-faint); border-color: var(--line); }
   .log-list { display: flex; flex-direction: column; gap: 6px; max-height: 320px; overflow-y: auto; }
-  .log-row { display: flex; align-items: flex-start; gap: 8px; font-size: 12px; color: var(--text-dim); padding: 6px 4px; border-bottom: 1px solid var(--line); }
-  .log-row-tc { font-family: 'IBM Plex Mono', monospace; color: var(--text-faint); flex-shrink: 0; width: 48px; }
+  .log-row { display: flex; align-items: flex-start; gap: 10px; font-size: 12px; color: var(--text-dim); padding: 6px 4px; border-bottom: 1px solid var(--line); }
+  .log-row-editing { background: rgba(58,160,214,0.08); border-radius: 6px; }
+  .log-row-tc { font-family: 'IBM Plex Mono', monospace; color: var(--text-faint); flex-shrink: 0; width: 60px; white-space: nowrap; }
+  .log-row-set { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--carpet-light); background: rgba(58,160,214,0.14); border-radius: 4px; padding: 2px 6px; flex-shrink: 0; white-space: nowrap; align-self: flex-start; }
   .log-row-desc { flex: 1; color: var(--text); }
   .log-row-rating { color: var(--standby); flex-shrink: 0; letter-spacing: 1px; }
+  .log-row-edit { background: transparent; border: none; color: var(--text-faint); font-size: 12px; padding: 0 4px; flex-shrink: 0; }
+  .log-row-edit:hover { color: var(--carpet-light); }
   .log-row-del { background: transparent; border: none; color: var(--text-faint); font-size: 12px; padding: 0 4px; flex-shrink: 0; }
   .log-row-del:hover { color: var(--live); }
 
@@ -324,6 +334,8 @@
   .tag-toggle-active { background: var(--standby); border-color: var(--standby); color: #1A1400; }
   .log-row-tags { display: flex; gap: 4px; flex-shrink: 0; }
   .log-tag-chip { font-family: 'IBM Plex Mono', monospace; font-size: 9px; letter-spacing: 0.05em; background: rgba(232,163,61,0.18); color: var(--standby); padding: 2px 6px; border-radius: 3px; }
+  .log-tag-chip-btn { border: none; opacity: 0.45; cursor: pointer; }
+  .log-tag-chip-btn.log-tag-chip-active { opacity: 1; }
 
   /* -- Daily Log -- */
   .dailylog-row { padding: 12px 10px; border-bottom: 1px solid var(--line); }
@@ -331,8 +343,11 @@
   .dailylog-num { font-family: 'Oswald', sans-serif; font-size: 15px; font-weight: 600; color: var(--carpet-light); background: rgba(58,160,214,0.14); border-radius: 5px; padding: 2px 8px; flex-shrink: 0; }
   .dailylog-matchup { font-family: 'Oswald', sans-serif; font-size: 18px; letter-spacing: 0.01em; color: var(--text); display: inline-flex; align-items: center; gap: 6px; }
   .dailylog-meta { font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.06em; color: var(--text-faint); text-transform: uppercase; margin-bottom: 6px; }
-  .dailylog-body { display: flex; align-items: baseline; gap: 10px; font-size: 13px; }
-  .dailylog-tc { font-family: 'IBM Plex Mono', monospace; color: var(--text-faint); flex-shrink: 0; }
+  .dailylog-entry { display: flex; flex-direction: column; gap: 4px; padding: 6px 0; border-top: 1px solid var(--line); }
+  .dailylog-entry:first-of-type { border-top: none; }
+  .dailylog-body { display: flex; align-items: baseline; gap: 10px; font-size: 13px; flex-wrap: wrap; }
+  .dailylog-set { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--carpet-light); background: rgba(58,160,214,0.14); border-radius: 4px; padding: 2px 6px; flex-shrink: 0; }
+  .dailylog-tc { font-family: 'IBM Plex Mono', monospace; color: var(--text-faint); flex-shrink: 0; white-space: nowrap; }
   .dailylog-desc { color: var(--text); flex: 1; }
   .dailylog-rating { color: var(--standby); letter-spacing: 1px; flex-shrink: 0; }
 
@@ -1721,6 +1736,20 @@ function nextEndLabel(pointer) {
   const setLabel = pointer.setIdx === 2 ? 'Tiebreak' : `Set ${pointer.setIdx + 1}`;
   return `${setLabel} · End ${pointer.endIdx + 1}`;
 }
+// Default value for the Logsheet's Set ID field — whatever set the score
+// entry is currently sitting on. Mirrors nextEndPointer's set-only, so the
+// field tracks live play without a producer having to type it every time;
+// it's still a plain text input underneath, so it can be corrected by hand
+// if the auto guess is wrong (e.g. a log entry logged slightly out of
+// order, or a discipline/set edge case this doesn't anticipate).
+function currentSetLabel(sets) {
+  if (!sets) return 'Set 1';
+  const pointer = nextEndPointer(sets);
+  if (pointer) return pointer.setIdx === 2 ? 'Tiebreak' : `Set ${pointer.setIdx + 1}`;
+  if (needsTiebreak(sets) && sets[2] && setHasEntries(sets[2].ends)) return 'Tiebreak';
+  if (sets[1] && setHasEntries(sets[1].ends)) return 'Set 2';
+  return 'Set 1';
+}
 const NAV = [{
   id: 'wall',
   label: 'Gallery Wall'
@@ -1866,7 +1895,8 @@ function MatchCard({
   onSetEnd,
   onToggleFinal,
   onLogAdd,
-  onLogDelete
+  onLogDelete,
+  onLogEdit
 }) {
   const rest = upcoming || [];
   const sets = match.sets;
@@ -1950,14 +1980,13 @@ function MatchCard({
   }, match.final ? 'Reopen' : 'Mark final')), /*#__PURE__*/React.createElement("button", {
     className: "expand-toggle",
     onClick: () => onToggleExpand(match.id)
-  }, expanded ? 'Hide roster & logsheet' : 'Roster & logsheet'), expanded && /*#__PURE__*/React.createElement("div", {
+  }, expanded ? 'Hide logsheet' : 'Logsheet'), expanded && /*#__PURE__*/React.createElement("div", {
     className: "expand-panel"
-  }, /*#__PURE__*/React.createElement(RosterPanel, {
-    match: match
-  }), /*#__PURE__*/React.createElement(LogSheet, {
+  }, /*#__PURE__*/React.createElement(LogSheet, {
     match: match,
     onAdd: onLogAdd,
-    onDelete: onLogDelete
+    onDelete: onLogDelete,
+    onEdit: onLogEdit
   })), /*#__PURE__*/React.createElement(UpcomingList, {
     items: rest,
     onFocus: onFocus
@@ -2022,39 +2051,73 @@ function formatTimecode(raw) {
   }
   return parts.join(':');
 }
-// Per-match logsheet: timecode, a free-text description, a 1-5 star
-// rating, and two designators — Best of set / Final bowl — instead of a
-// team field. Entries are appended, never edited in place — only deleted
-// and re-added if a producer needs to fix one — and are always written via
-// the parent's functional updateMatch (see onAdd), so a log entry can never
-// clobber a score edit that landed at the same moment or vice versa. Sorted
-// oldest-first internally (stable createdAt ordering) but displayed
-// newest-first, since that's what a producer scanning back wants.
+// Per-match logsheet: timecode, an auto-populated (but manually editable)
+// Set ID, a free-text description, a 1-5 star rating, and two designators
+// — Best of set / Final bowl. New entries are appended and always written
+// via the parent's functional updateMatch (see onAdd), so a log entry can
+// never clobber a score edit that landed at the same moment or vice versa.
+// Existing entries can also be edited in place (onEdit) — used both for
+// the full edit form and for the one-tap Best of set toggle on each row.
+// Sorted oldest-first and displayed oldest-first too, so new entries land
+// at the bottom and the sheet reads top-to-bottom like a running log.
 function LogSheet({
   match,
   onAdd,
-  onDelete
+  onDelete,
+  onEdit
 }) {
+  const defaultSetLabel = useMemo(() => currentSetLabel(match.sets), [match.sets]);
+  const [editingId, setEditingId] = useState(null);
   const [timecode, setTimecode] = useState('');
+  const [setLabel, setSetLabel] = useState(defaultSetLabel);
+  const [setLabelTouched, setSetLabelTouched] = useState(false);
   const [description, setDescription] = useState('');
   const [rating, setRating] = useState(0);
   const [bestOfSet, setBestOfSet] = useState(false);
   const [finalBowl, setFinalBowl] = useState(false);
   const entries = (match.log || []).slice().sort((a, b) => a.createdAt - b.createdAt);
-  const submit = () => {
-    if (!description.trim()) return;
-    onAdd(match.id, match.disciplineCode, {
-      timecode: timecode.trim(),
-      description: description.trim(),
-      rating,
-      bestOfSet,
-      finalBowl
-    });
+  // Only track the live default while adding a fresh entry — once a
+  // producer is editing an existing row, or has hand-typed a Set ID for
+  // the entry in progress, further score activity shouldn't stomp on it.
+  useEffect(() => {
+    if (!editingId && !setLabelTouched) setSetLabel(defaultSetLabel);
+  }, [defaultSetLabel, editingId, setLabelTouched]);
+  const resetForm = () => {
+    setEditingId(null);
     setTimecode('');
+    setSetLabel(defaultSetLabel);
+    setSetLabelTouched(false);
     setDescription('');
     setRating(0);
     setBestOfSet(false);
     setFinalBowl(false);
+  };
+  const startEdit = e => {
+    setEditingId(e.id);
+    setTimecode(e.timecode || '');
+    setSetLabel(e.setLabel || defaultSetLabel);
+    setSetLabelTouched(true);
+    setDescription(e.description || '');
+    setRating(e.rating || 0);
+    setBestOfSet(!!e.bestOfSet);
+    setFinalBowl(!!e.finalBowl);
+  };
+  const submit = () => {
+    if (!description.trim()) return;
+    const payload = {
+      timecode: timecode.trim(),
+      setLabel: setLabel.trim(),
+      description: description.trim(),
+      rating,
+      bestOfSet,
+      finalBowl
+    };
+    if (editingId) {
+      onEdit(match.id, match.disciplineCode, editingId, payload);
+    } else {
+      onAdd(match.id, match.disciplineCode, payload);
+    }
+    resetForm();
   };
   return /*#__PURE__*/React.createElement("div", {
     className: "panel panel-full"
@@ -2062,14 +2125,24 @@ function LogSheet({
     className: "panel-title"
   }, "Logsheet"), /*#__PURE__*/React.createElement("div", {
     className: "log-entry-form"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "log-input-row"
   }, /*#__PURE__*/React.createElement("input", {
-    className: "log-input",
+    className: "log-input log-input-tc",
     placeholder: "Timecode — type digits, e.g. 143344",
     inputMode: "numeric",
     maxLength: 8,
     value: timecode,
     onChange: e => setTimecode(formatTimecode(e.target.value))
-  }), /*#__PURE__*/React.createElement("textarea", {
+  }), /*#__PURE__*/React.createElement("input", {
+    className: "log-input log-input-set",
+    placeholder: "Set ID",
+    value: setLabel,
+    onChange: e => {
+      setSetLabelTouched(true);
+      setSetLabel(e.target.value);
+    }
+  })), /*#__PURE__*/React.createElement("textarea", {
     className: "log-input log-input-desc",
     placeholder: "What happened...",
     rows: 2,
@@ -2092,29 +2165,45 @@ function LogSheet({
     type: "button",
     className: 'tag-toggle' + (finalBowl ? ' tag-toggle-active' : ''),
     onClick: () => setFinalBowl(v => !v)
-  }, "Final bowl")), /*#__PURE__*/React.createElement("button", {
+  }, "Final bowl")), /*#__PURE__*/React.createElement("div", {
+    className: "log-form-actions"
+  }, /*#__PURE__*/React.createElement("button", {
     className: "ghost-btn",
     onClick: submit
-  }, "Add entry")), /*#__PURE__*/React.createElement("div", {
+  }, editingId ? 'Save changes' : 'Add entry'), editingId && /*#__PURE__*/React.createElement("button", {
+    className: "ghost-btn ghost-btn-muted",
+    type: "button",
+    onClick: resetForm
+  }, "Cancel"))), /*#__PURE__*/React.createElement("div", {
     className: "log-list"
   }, entries.length === 0 ? /*#__PURE__*/React.createElement("div", {
     className: "roster-empty"
-  }, "No log entries yet.") : entries.slice().reverse().map(e => /*#__PURE__*/React.createElement("div", {
-    className: "log-row",
+  }, "No log entries yet.") : entries.map(e => /*#__PURE__*/React.createElement("div", {
+    className: 'log-row' + (editingId === e.id ? ' log-row-editing' : ''),
     key: e.id
   }, /*#__PURE__*/React.createElement("span", {
     className: "log-row-tc"
-  }, e.timecode || '—'), /*#__PURE__*/React.createElement("span", {
+  }, e.timecode || '—'), e.setLabel && /*#__PURE__*/React.createElement("span", {
+    className: "log-row-set"
+  }, e.setLabel), /*#__PURE__*/React.createElement("span", {
     className: "log-row-desc"
   }, e.description), /*#__PURE__*/React.createElement("div", {
     className: "log-row-tags"
-  }, e.bestOfSet && /*#__PURE__*/React.createElement("span", {
-    className: "log-tag-chip"
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: 'log-tag-chip log-tag-chip-btn' + (e.bestOfSet ? ' log-tag-chip-active' : ''),
+    onClick: () => onEdit(match.id, match.disciplineCode, e.id, {
+      bestOfSet: !e.bestOfSet
+    })
   }, "BEST OF SET"), e.finalBowl && /*#__PURE__*/React.createElement("span", {
     className: "log-tag-chip"
   }, "FINAL BOWL")), e.rating > 0 && /*#__PURE__*/React.createElement("span", {
     className: "log-row-rating"
   }, '★'.repeat(e.rating)), /*#__PURE__*/React.createElement("button", {
+    className: "log-row-edit",
+    type: "button",
+    onClick: () => startEdit(e)
+  }, "✎"), /*#__PURE__*/React.createElement("button", {
     className: "log-row-del",
     onClick: () => onDelete(match.id, match.disciplineCode, e.id)
   }, "✕")))));
@@ -2164,11 +2253,16 @@ function Standings({
 // match that's tagged Best of set or Final bowl — the pair of designators
 // that matter enough to surface on their own tab, out of what could
 // otherwise be a lot of routine logsheet noise across four rinks all day.
+// Grouped one entry-list per match (rather than one flat feed interleaving
+// every rink) and sorted by match number, so a producer scanning the tab
+// sees everything for one match together instead of hunting across a
+// timeline. Entries within a match are oldest-first, same as the match's
+// own logsheet.
 function buildDailyLog(dayId, scores) {
   const day = SCHEDULE[dayId];
   if (!day) return [];
   const dayMatchNumbers = buildDayMatchNumbers(dayId);
-  const out = [];
+  const groups = [];
   day.sessions.forEach((session, si) => {
     session.rows.forEach((row, ri) => {
       row.matches.forEach((m, idx) => {
@@ -2178,31 +2272,29 @@ function buildDailyLog(dayId, scores) {
         const rink = idx + 1;
         const id = `d${dayId}-s${si}-r${ri}-k${rink}`;
         const log = scores[id] && scores[id].log;
-        if (!log || !log.length) return;
-        log.forEach(entry => {
-          if (!entry.bestOfSet && !entry.finalBowl) return;
-          out.push({
-            entry,
-            matchId: id,
-            matchNumber: dayMatchNumbers[id],
-            rink,
-            time: row.time,
-            discipline: DISCIPLINES[discCode] || discCode,
-            a: home,
-            b: away
-          });
+        const entries = (log || []).filter(entry => entry.bestOfSet || entry.finalBowl).sort((a, b) => a.createdAt - b.createdAt);
+        if (!entries.length) return;
+        groups.push({
+          matchId: id,
+          matchNumber: dayMatchNumbers[id],
+          rink,
+          time: row.time,
+          discipline: DISCIPLINES[discCode] || discCode,
+          a: home,
+          b: away,
+          entries
         });
       });
     });
   });
-  return out.sort((x, y) => x.entry.createdAt - y.entry.createdAt);
+  return groups.sort((x, y) => (x.matchNumber || 0) - (y.matchNumber || 0));
 }
 function DailyLog({
   dayId,
   scores,
   day
 }) {
-  const rows = useMemo(() => buildDailyLog(dayId, scores), [dayId, scores]);
+  const groups = useMemo(() => buildDailyLog(dayId, scores), [dayId, scores]);
   return /*#__PURE__*/React.createElement("div", {
     className: "view"
   }, /*#__PURE__*/React.createElement("div", {
@@ -2214,38 +2306,43 @@ function DailyLog({
     style: {
       marginBottom: 12
     }
-  }, "Every logsheet entry across all four rinks today marked Best of set or Final bowl — routine entries stay on the match's own logsheet."), rows.length === 0 ? /*#__PURE__*/React.createElement("div", {
+  }, "Every logsheet entry across all four rinks today marked Best of set or Final bowl, grouped by match — routine entries stay on the match's own logsheet."), groups.length === 0 ? /*#__PURE__*/React.createElement("div", {
     className: "roster-empty"
-  }, "No best-of-set or final-bowl entries logged yet today.") : rows.map(r => /*#__PURE__*/React.createElement("div", {
+  }, "No best-of-set or final-bowl entries logged yet today.") : groups.map(g => /*#__PURE__*/React.createElement("div", {
     className: "dailylog-row",
-    key: r.entry.id
+    key: g.matchId
   }, /*#__PURE__*/React.createElement("div", {
     className: "dailylog-header"
-  }, r.matchNumber && /*#__PURE__*/React.createElement("span", {
+  }, g.matchNumber && /*#__PURE__*/React.createElement("span", {
     className: "dailylog-num"
-  }, "M", r.matchNumber), /*#__PURE__*/React.createElement("span", {
+  }, "M", g.matchNumber), /*#__PURE__*/React.createElement("span", {
     className: "dailylog-matchup"
   }, /*#__PURE__*/React.createElement(Flag, {
-    code: r.a
-  }), r.a, " v ", r.b, /*#__PURE__*/React.createElement(Flag, {
-    code: r.b
-  })), /*#__PURE__*/React.createElement("div", {
-    className: "log-row-tags"
-  }, r.entry.bestOfSet && /*#__PURE__*/React.createElement("span", {
-    className: "log-tag-chip"
-  }, "BEST OF SET"), r.entry.finalBowl && /*#__PURE__*/React.createElement("span", {
-    className: "log-tag-chip"
-  }, "FINAL BOWL"))), /*#__PURE__*/React.createElement("div", {
+    code: g.a
+  }), g.a, " v ", g.b, /*#__PURE__*/React.createElement(Flag, {
+    code: g.b
+  }))), /*#__PURE__*/React.createElement("div", {
     className: "dailylog-meta"
-  }, "RINK ", r.rink, " · ", r.time, " · ", r.discipline), /*#__PURE__*/React.createElement("div", {
+  }, "RINK ", g.rink, " · ", g.time, " · ", g.discipline), g.entries.map(entry => /*#__PURE__*/React.createElement("div", {
+    className: "dailylog-entry",
+    key: entry.id
+  }, /*#__PURE__*/React.createElement("div", {
     className: "dailylog-body"
   }, /*#__PURE__*/React.createElement("span", {
     className: "dailylog-tc"
-  }, r.entry.timecode || '—'), /*#__PURE__*/React.createElement("span", {
+  }, entry.timecode || '—'), entry.setLabel && /*#__PURE__*/React.createElement("span", {
+    className: "dailylog-set"
+  }, entry.setLabel), /*#__PURE__*/React.createElement("span", {
     className: "dailylog-desc"
-  }, r.entry.description), r.entry.rating > 0 && /*#__PURE__*/React.createElement("span", {
+  }, entry.description), entry.rating > 0 && /*#__PURE__*/React.createElement("span", {
     className: "dailylog-rating"
-  }, '★'.repeat(r.entry.rating))))));
+  }, '★'.repeat(entry.rating))), /*#__PURE__*/React.createElement("div", {
+    className: "log-row-tags"
+  }, entry.bestOfSet && /*#__PURE__*/React.createElement("span", {
+    className: "log-tag-chip"
+  }, "BEST OF SET"), entry.finalBowl && /*#__PURE__*/React.createElement("span", {
+    className: "log-tag-chip"
+  }, "FINAL BOWL")))))));
 }
 function MatchCell({
   m,
@@ -2759,6 +2856,19 @@ function App() {
       log: (current.log || []).filter(e => e.id !== entryId)
     }));
   };
+  // Patches one existing entry in place (full edits from the logsheet form,
+  // and the one-tap Best of set toggle on each row both go through this) —
+  // same functional-update path as add/delete, so a concurrent score edit
+  // or another log action can't clobber it.
+  const editLogEntry = (id, disciplineCode, entryId, patch) => {
+    updateMatch(id, disciplineCode, current => ({
+      ...current,
+      log: (current.log || []).map(e => e.id === entryId ? {
+        ...e,
+        ...patch
+      } : e)
+    }));
+  };
   // Sets exactly one end's running total for one side. This only ever
   // touches the single {setIdx, endIdx, side} cell it's given — every other
   // end, in every other set, on every other match, is carried through
@@ -2940,7 +3050,8 @@ function App() {
     onSetEnd: setEndScore,
     onToggleFinal: toggleFinal,
     onLogAdd: addLogEntry,
-    onLogDelete: deleteLogEntry
+    onLogDelete: deleteLogEntry,
+    onLogEdit: editLogEntry
   })))), view === 'schedule' && /*#__PURE__*/React.createElement(Schedule, {
     dayId: dayId,
     onJumpToMatch: jumpToMatch
