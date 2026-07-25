@@ -334,8 +334,6 @@
   .tag-toggle-active { background: var(--standby); border-color: var(--standby); color: #1A1400; }
   .log-row-tags { display: flex; gap: 4px; flex-shrink: 0; }
   .log-tag-chip { font-family: 'IBM Plex Mono', monospace; font-size: 9px; letter-spacing: 0.05em; background: rgba(232,163,61,0.18); color: var(--standby); padding: 2px 6px; border-radius: 3px; }
-  .log-tag-chip-btn { border: none; opacity: 0.45; cursor: pointer; }
-  .log-tag-chip-btn.log-tag-chip-active { opacity: 1; }
 
   /* -- Daily Log -- */
   .dailylog-row { padding: 12px 10px; border-bottom: 1px solid var(--line); }
@@ -2144,10 +2142,16 @@ function LogSheet({
     }
   })), /*#__PURE__*/React.createElement("textarea", {
     className: "log-input log-input-desc",
-    placeholder: "What happened...",
+    placeholder: "What happened... (Enter to add, Shift+Enter for a new line)",
     rows: 2,
     value: description,
-    onChange: e => setDescription(e.target.value)
+    onChange: e => setDescription(e.target.value),
+    onKeyDown: e => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        submit();
+      }
+    }
   }), /*#__PURE__*/React.createElement("div", {
     className: "log-rating-row"
   }, [1, 2, 3, 4, 5].map(n => /*#__PURE__*/React.createElement("button", {
@@ -2189,12 +2193,8 @@ function LogSheet({
     className: "log-row-desc"
   }, e.description), /*#__PURE__*/React.createElement("div", {
     className: "log-row-tags"
-  }, /*#__PURE__*/React.createElement("button", {
-    type: "button",
-    className: 'log-tag-chip log-tag-chip-btn' + (e.bestOfSet ? ' log-tag-chip-active' : ''),
-    onClick: () => onEdit(match.id, match.disciplineCode, e.id, {
-      bestOfSet: !e.bestOfSet
-    })
+  }, e.bestOfSet && /*#__PURE__*/React.createElement("span", {
+    className: "log-tag-chip"
   }, "BEST OF SET"), e.finalBowl && /*#__PURE__*/React.createElement("span", {
     className: "log-tag-chip"
   }, "FINAL BOWL")), e.rating > 0 && /*#__PURE__*/React.createElement("span", {
