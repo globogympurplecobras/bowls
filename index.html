@@ -44,6 +44,8 @@
     --disc-ms-bg: rgba(55,138,221,0.22); --disc-ms-fg: #9AC4F2;
     --disc-wp-bg: rgba(186,117,23,0.22); --disc-wp-fg: #F5C583;
     --disc-para-bg: rgba(127,119,221,0.22); --disc-para-fg: #C4BFF2;
+    --set2-bg: rgba(122,201,71,0.18); --set2-fg: #8FDD5D;
+    --team-red: #E5473C; --team-blue: #3F8CE0;
     --tile-shade: #0E1620;
     font-family: 'Manrope', sans-serif;
     background: var(--bg); color: var(--text);
@@ -59,6 +61,7 @@
     --disc-ms-bg: #E6F1FB; --disc-ms-fg: #0C447C;
     --disc-wp-bg: #FAEEDA; --disc-wp-fg: #633806;
     --disc-para-bg: #EEEDFE; --disc-para-fg: #3C3489;
+    --set2-bg: #E7F5DC; --set2-fg: #2F6B12;
     --tile-shade: #EEF2F5;
   }
   .bowls-console * { box-sizing: border-box; }
@@ -152,6 +155,9 @@
   .tile-set-nav button:disabled { opacity: 0.35; cursor: default; }
   .tile-set-nav-label { font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.06em; color: var(--text-faint); }
   .tag-winner { background: rgba(58,160,214,0.15); color: var(--carpet-light); }
+  .colour-toggle { font-family: 'IBM Plex Mono', monospace; font-size: 9px; letter-spacing: 0.06em; padding: 3px 7px; border-radius: 3px; border: 1px dashed var(--line); background: transparent; color: var(--text-faint); flex-shrink: 0; }
+  .colour-toggle-red { border-style: solid; border-color: var(--team-red); background: var(--team-red); color: #fff; }
+  .colour-toggle-blue { border-style: solid; border-color: var(--team-blue); background: var(--team-blue); color: #fff; }
   .team-row-winner .team-name { font-weight: 700; }
   .tile-winner-note { font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.06em; color: var(--carpet-light); }
 
@@ -246,6 +252,7 @@
   .log-input-row { display: flex; gap: 8px; }
   .log-input-tc { flex: 1.4; }
   .log-input-set { flex: 1; }
+  .log-input-end { flex: 0.7; }
   .log-input-clip { flex: 0.9; }
   .log-rating-row { display: flex; gap: 4px; }
   .log-rating-btn { background: transparent; border: 1px solid var(--line); color: var(--text-faint); border-radius: 4px; width: 28px; height: 28px; font-size: 14px; }
@@ -258,6 +265,8 @@
   .log-row-editing { background: rgba(58,160,214,0.08); border-radius: 6px; }
   .log-row-tc { font-family: 'IBM Plex Mono', monospace; color: var(--text-faint); flex-shrink: 0; width: 60px; white-space: nowrap; }
   .log-row-set { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--carpet-light); background: rgba(58,160,214,0.14); border-radius: 4px; padding: 2px 6px; flex-shrink: 0; white-space: nowrap; align-self: flex-start; }
+  .log-row-end { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--text-faint); background: var(--panel-raised); border-radius: 4px; padding: 2px 6px; flex-shrink: 0; white-space: nowrap; align-self: flex-start; }
+  .log-row-set2 { color: var(--set2-fg); background: var(--set2-bg); }
   .log-row-desc { flex: 1; color: var(--text); }
   .log-row-rating { color: var(--standby); flex-shrink: 0; letter-spacing: 1px; }
   .log-row-edit { background: transparent; border: none; color: var(--text-faint); font-size: 12px; padding: 0 4px; flex-shrink: 0; }
@@ -328,6 +337,7 @@
   .mcell-num { font-family: 'IBM Plex Mono', monospace; font-size: 9px; color: var(--text-faint); background: var(--panel-raised); padding: 2px 5px; border-radius: 3px; }
   .end-shot { font-size: 9px; height: 11px; line-height: 11px; color: var(--carpet-light); font-family: 'IBM Plex Mono', monospace; }
   .set-total-badge { font-family: 'Oswald', sans-serif; font-size: 16px; padding: 2px 8px; }
+  .set-block-set2 .set-block-label, .set-block-set2 .set-total-badge, .set-block-set2 .end-head { color: var(--set2-fg); }
 
   /* -- Logsheet v2 -- */
   .tag-row { display: flex; gap: 6px; }
@@ -1581,7 +1591,11 @@ function defaultScoreState(disciplineCode) {
     final: false,
     sets: buildEmptySets(disciplineCode || 'MP'),
     notes: '',
-    log: []
+    log: [],
+    // Which side ('a' or 'b') is wearing red — the other side is blue by
+    // implication, so there's only ever one field to store/toggle rather
+    // than two that could disagree. null means no colours assigned yet.
+    redTeam: null
   };
 }
 // Running total for one side as of a given end index — the explicit value
@@ -1660,7 +1674,8 @@ function coerceScoreState(raw, disciplineCode) {
     final: !!raw.final,
     sets,
     notes: typeof raw.notes === 'string' ? raw.notes : '',
-    log: Array.isArray(raw.log) ? raw.log : []
+    log: Array.isArray(raw.log) ? raw.log : [],
+    redTeam: raw.redTeam === 'a' || raw.redTeam === 'b' ? raw.redTeam : null
   };
 }
 function needsTiebreak(sets) {
@@ -1750,6 +1765,30 @@ function currentSetLabel(sets) {
   if (needsTiebreak(sets) && sets[2] && setHasEntries(sets[2].ends)) return 'Tiebreak';
   if (sets[1] && setHasEntries(sets[1].ends)) return 'Set 2';
   return 'Set 1';
+}
+// Default value for the Logsheet's End ID field — mirrors currentSetLabel,
+// but resolves to the specific end number within whatever set is current,
+// rather than just the set. Same rationale: a plain text input underneath,
+// so it's always hand-correctable if a log entry lands slightly out of
+// step with the live scoresheet (logged a beat late, entered against the
+// wrong end, etc).
+function currentEndLabel(sets) {
+  if (!sets) return '1';
+  const pointer = nextEndPointer(sets);
+  if (pointer) return String(pointer.endIdx + 1);
+  // Nothing left to fill in for the current set — fall back to the last
+  // end in whichever set currentSetLabel resolved to.
+  const label = currentSetLabel(sets);
+  const idx = label === 'Tiebreak' ? 2 : label === 'Set 2' ? 1 : 0;
+  const ends = sets[idx] && sets[idx].ends;
+  return ends && ends.length ? String(ends.length) : '1';
+}
+// Whether a (possibly hand-edited) Set ID string refers to Set 2 — used
+// purely for the green Set 2 colour cue on Logsheet chips, so a producer
+// who typed "set2", "Set 2", etc. still gets the right colour rather than
+// only matching the exact auto-generated "Set 2" string.
+function isSet2Label(label) {
+  return typeof label === 'string' && /set\s*2/i.test(label);
 }
 const NAV = [{
   id: 'wall',
@@ -1895,6 +1934,7 @@ function MatchCard({
   onFocus,
   onSetEnd,
   onToggleFinal,
+  onSetRedTeam,
   onLogAdd,
   onLogDelete,
   onLogEdit
@@ -1909,7 +1949,7 @@ function MatchCard({
     className: "mcell-commentator tile-commentator"
   }, commentatorLabel(match.commentatorCode));
   const setBlock = (idx, label) => sets[idx] && /*#__PURE__*/React.createElement("div", {
-    className: "set-block",
+    className: "set-block" + (idx === 1 ? ' set-block-set2' : ''),
     key: idx
   }, /*#__PURE__*/React.createElement("div", {
     className: "set-block-label"
@@ -1920,6 +1960,24 @@ function MatchCard({
     disabled: match.final,
     onSetEnd: (endIdx, side, value) => onSetEnd(match.id, match.disciplineCode, idx, endIdx, side, value)
   }));
+  // Red/blue is purely a display convenience for the producer (e.g. bowl
+  // colour on camera) — one field (match.redTeam) drives both sides, so
+  // there's no way for a and b to end up assigned the same colour. Tapping
+  // a side's swatch makes it red (the other becomes blue automatically);
+  // tapping the already-red side again clears both back to neutral.
+  const colourFor = side => match.redTeam ? match.redTeam === side ? 'red' : 'blue' : null;
+  const colourBtn = side => {
+    const c = colourFor(side);
+    return /*#__PURE__*/React.createElement("button", {
+      type: "button",
+      className: 'colour-toggle' + (c ? ' colour-toggle-' + c : ''),
+      onClick: e => {
+        e.stopPropagation();
+        onSetRedTeam(match.id, match.disciplineCode, side);
+      },
+      title: c === 'red' ? 'Red team — tap to clear' : c === 'blue' ? 'Blue team' : 'Tap to set red team'
+    }, c ? c.toUpperCase() : 'SET');
+  };
   const header = /*#__PURE__*/React.createElement("div", {
     className: "match-sticky-header"
   }, /*#__PURE__*/React.createElement("div", {
@@ -1945,7 +2003,7 @@ function MatchCard({
     className: "team-athlete"
   }, athleteLine(match.disciplineCode, match.a))), winner === 'a' && /*#__PURE__*/React.createElement("span", {
     className: "tag tag-winner"
-  }, "WINNER")), /*#__PURE__*/React.createElement("div", {
+  }, "WINNER"), colourBtn('a')), /*#__PURE__*/React.createElement("div", {
     className: 'match-team' + (winner === 'b' ? ' match-team-winner' : '')
   }, /*#__PURE__*/React.createElement(Flag, {
     code: match.b
@@ -1957,7 +2015,7 @@ function MatchCard({
     className: "team-athlete"
   }, athleteLine(match.disciplineCode, match.b))), winner === 'b' && /*#__PURE__*/React.createElement("span", {
     className: "tag tag-winner"
-  }, "WINNER"))));
+  }, "WINNER"), colourBtn('b'))));
   // Everything below the pinned header scrolls inside its own capped-height
   // region (.match-card-body), rather than relying on the whole page's
   // scroll position — that's what keeps the team names visible no matter
@@ -2068,10 +2126,13 @@ function LogSheet({
   onEdit
 }) {
   const defaultSetLabel = useMemo(() => currentSetLabel(match.sets), [match.sets]);
+  const defaultEndLabel = useMemo(() => currentEndLabel(match.sets), [match.sets]);
   const [editingId, setEditingId] = useState(null);
   const [timecode, setTimecode] = useState('');
   const [setLabel, setSetLabel] = useState(defaultSetLabel);
   const [setLabelTouched, setSetLabelTouched] = useState(false);
+  const [endLabel, setEndLabel] = useState(defaultEndLabel);
+  const [endLabelTouched, setEndLabelTouched] = useState(false);
   const [clipNumber, setClipNumber] = useState('');
   const [description, setDescription] = useState('');
   const [rating, setRating] = useState(0);
@@ -2079,16 +2140,22 @@ function LogSheet({
   const [finalBowl, setFinalBowl] = useState(false);
   const entries = (match.log || []).slice().sort((a, b) => a.createdAt - b.createdAt);
   // Only track the live default while adding a fresh entry — once a
-  // producer is editing an existing row, or has hand-typed a Set ID for
-  // the entry in progress, further score activity shouldn't stomp on it.
+  // producer is editing an existing row, or has hand-typed a Set ID (or
+  // End ID) for the entry in progress, further score activity shouldn't
+  // stomp on it.
   useEffect(() => {
     if (!editingId && !setLabelTouched) setSetLabel(defaultSetLabel);
   }, [defaultSetLabel, editingId, setLabelTouched]);
+  useEffect(() => {
+    if (!editingId && !endLabelTouched) setEndLabel(defaultEndLabel);
+  }, [defaultEndLabel, editingId, endLabelTouched]);
   const resetForm = () => {
     setEditingId(null);
     setTimecode('');
     setSetLabel(defaultSetLabel);
     setSetLabelTouched(false);
+    setEndLabel(defaultEndLabel);
+    setEndLabelTouched(false);
     setClipNumber('');
     setDescription('');
     setRating(0);
@@ -2100,6 +2167,8 @@ function LogSheet({
     setTimecode(e.timecode || '');
     setSetLabel(e.setLabel || defaultSetLabel);
     setSetLabelTouched(true);
+    setEndLabel(e.endLabel || defaultEndLabel);
+    setEndLabelTouched(true);
     setClipNumber(e.clipNumber || '');
     setDescription(e.description || '');
     setRating(e.rating || 0);
@@ -2111,6 +2180,7 @@ function LogSheet({
     const payload = {
       timecode: timecode.trim(),
       setLabel: setLabel.trim(),
+      endLabel: endLabel.trim(),
       clipNumber: clipNumber.trim(),
       description: description.trim(),
       rating,
@@ -2146,6 +2216,14 @@ function LogSheet({
     onChange: e => {
       setSetLabelTouched(true);
       setSetLabel(e.target.value);
+    }
+  }), /*#__PURE__*/React.createElement("input", {
+    className: "log-input log-input-end",
+    placeholder: "End",
+    value: endLabel,
+    onChange: e => {
+      setEndLabelTouched(true);
+      setEndLabel(e.target.value);
     }
   }), /*#__PURE__*/React.createElement("input", {
     className: "log-input log-input-clip",
@@ -2200,8 +2278,10 @@ function LogSheet({
   }, /*#__PURE__*/React.createElement("span", {
     className: "log-row-tc"
   }, e.timecode || '—'), e.setLabel && /*#__PURE__*/React.createElement("span", {
-    className: "log-row-set"
-  }, e.setLabel), /*#__PURE__*/React.createElement("span", {
+    className: "log-row-set" + (isSet2Label(e.setLabel) ? ' log-row-set2' : '')
+  }, e.setLabel), e.endLabel && /*#__PURE__*/React.createElement("span", {
+    className: "log-row-end" + (isSet2Label(e.setLabel) ? ' log-row-set2' : '')
+  }, "END ", e.endLabel), /*#__PURE__*/React.createElement("span", {
     className: "log-row-desc"
   }, e.description), /*#__PURE__*/React.createElement("div", {
     className: "log-row-tags"
@@ -2912,6 +2992,15 @@ function App() {
       final: !current.final
     }));
   };
+  // Assigns which side is red (the other is blue by implication — see
+  // defaultScoreState). Clicking the already-red side's swatch again clears
+  // the assignment back to neutral, same toggle pattern as final/reopen.
+  const setRedTeam = (id, disciplineCode, side) => {
+    updateMatch(id, disciplineCode, current => ({
+      ...current,
+      redTeam: current.redTeam === side ? null : side
+    }));
+  };
   const toggleExpand = id => {
     setExpandedIds(prev => {
       const next = {
@@ -3063,6 +3152,7 @@ function App() {
     onFocus: id => focusMatch(rinkIdx, id),
     onSetEnd: setEndScore,
     onToggleFinal: toggleFinal,
+    onSetRedTeam: setRedTeam,
     onLogAdd: addLogEntry,
     onLogDelete: deleteLogEntry,
     onLogEdit: editLogEntry
