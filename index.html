@@ -220,13 +220,14 @@
   .wall-session-tab { font-family: 'Oswald', sans-serif; font-size: 12px; letter-spacing: 0.05em; background: transparent; border: 1px solid var(--line); color: var(--text-dim); padding: 6px 12px; border-radius: 4px; }
   .wall-session-tab-active { background: var(--carpet); border-color: var(--carpet-light); color: var(--text); }
   .wall-row-tabs { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; margin-bottom: 4px; }
-  .wall-row-tab { flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; background: var(--panel); border: 1px solid var(--line); color: var(--text-faint); padding: 6px 10px; border-radius: 6px; min-width: 108px; }
+  .wall-row-tab { flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 3px; background: var(--panel); border: 1px solid var(--line); color: var(--text-faint); padding: 6px 12px; border-radius: 6px; white-space: nowrap; }
   .wall-row-tab-active { background: var(--carpet); border-color: var(--carpet-light); color: var(--text); }
-  .wall-row-tab-num { font-family: 'IBM Plex Mono', monospace; font-size: 9px; letter-spacing: 0.08em; color: var(--carpet-light); }
-  .wall-row-tab-active .wall-row-tab-num { color: var(--text); }
-  .wall-row-tab-time { font-family: 'Oswald', sans-serif; font-size: 13px; }
-  .wall-row-tab-match { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--text-dim); }
-  .wall-row-tab-active .wall-row-tab-match { color: var(--text); }
+  .wall-row-tab-head { font-family: 'IBM Plex Mono', monospace; font-size: 9px; letter-spacing: 0.08em; color: var(--carpet-light); }
+  .wall-row-tab-active .wall-row-tab-head { color: var(--text); }
+  .wall-row-tab-matches { display: flex; align-items: center; gap: 8px; font-family: 'Oswald', sans-serif; font-size: 13px; color: var(--text-dim); }
+  .wall-row-tab-active .wall-row-tab-matches { color: var(--text); }
+  .wall-row-tab-sep { color: var(--text-faint); font-size: 11px; }
+  .wall-row-tab-active .wall-row-tab-sep { color: var(--text-dim); }
 
   .broadcast-frame { position: relative; background: #05070A; border-radius: 8px; overflow: hidden; aspect-ratio: 16/9; max-width: 640px; border: 1px solid var(--line); }
   .broadcast-feed { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--text-faint); font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.1em; background: repeating-linear-gradient(135deg, #0B0F14, #0B0F14 10px, #0D1218 10px, #0D1218 20px); }
@@ -3221,20 +3222,20 @@ function App() {
       key: row.ri,
       className: 'wall-row-tab' + (active ? ' wall-row-tab-active' : ''),
       onClick: () => selectRow(row)
-    }, row.matchNumber && /*#__PURE__*/React.createElement("span", {
-      className: "wall-row-tab-num"
-    }, "M", row.matchNumber), /*#__PURE__*/React.createElement("span", {
-      className: "wall-row-tab-time"
-    }, row.time), /*#__PURE__*/React.createElement("span", {
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "wall-row-tab-head"
+    }, row.matchNumber && `M${row.matchNumber} · `, row.time), /*#__PURE__*/React.createElement("span", {
+      className: "wall-row-tab-matches"
+    }, /*#__PURE__*/React.createElement("span", {
       className: "wall-row-tab-match"
     }, row.m1 ? `${row.m1[1]} v ${row.m1[2]}` : '—'), /*#__PURE__*/React.createElement("span", {
+      className: "wall-row-tab-sep"
+    }, "│"), /*#__PURE__*/React.createElement("span", {
       className: "wall-row-tab-match"
-    }, row.m4 ? `${row.m4[1]} v ${row.m4[2]}` : '—'));
+    }, row.m4 ? `${row.m4[1]} v ${row.m4[2]}` : '—')));
   })), tvSlots.length === 0 && /*#__PURE__*/React.createElement("div", {
     className: "day-note"
   }, "No matches with confirmed teams in this session yet (likely a semi-final or medal-match placeholder) — nothing to track live here."), /*#__PURE__*/React.createElement("div", {
-    className: "section-label"
-  }, "ON THE WORLD FEED"), /*#__PURE__*/React.createElement("div", {
     className: "wall-grid"
   }, tvSlots.map(({
     rinkIdx,
