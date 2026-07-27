@@ -45,7 +45,7 @@
     --disc-wp-bg: rgba(186,117,23,0.22); --disc-wp-fg: #F5C583;
     --disc-para-bg: rgba(127,119,221,0.22); --disc-para-fg: #C4BFF2;
     --set2-bg: rgba(122,201,71,0.18); --set2-fg: #8FDD5D;
-    --team-red: #E5473C; --team-blue: #3F8CE0;
+    --team-red: #E5473C; --team-blue: #2166A6;
     --tile-shade: #0E1620;
     font-family: 'Manrope', sans-serif;
     background: var(--bg); color: var(--text);
@@ -344,7 +344,12 @@
   .end-input::-webkit-outer-spin-button, .end-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
   .end-input { -moz-appearance: textfield; appearance: textfield; }
   .mcell-num { font-family: 'IBM Plex Mono', monospace; font-size: 9px; color: var(--text-faint); background: var(--panel-raised); padding: 2px 5px; border-radius: 3px; }
-  .end-shot { font-size: 9px; height: 11px; line-height: 11px; color: var(--carpet-light); font-family: 'IBM Plex Mono', monospace; }
+  .end-input-red { border-color: var(--team-red); }
+  .end-input-blue { border-color: var(--team-blue); }
+  .end-shot { font-size: 9px; height: 15px; line-height: 11px; color: var(--carpet-light); font-family: 'IBM Plex Mono', monospace; display: flex; align-items: center; justify-content: center; }
+  .end-shot-pill { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 15px; padding: 0 4px; border-radius: 4px; font-family: 'Oswald', sans-serif; font-size: 10px; font-weight: 700; color: #fff; }
+  .end-shot-pill-red { background: var(--team-red); }
+  .end-shot-pill-blue { background: var(--team-blue); }
   .set-total-badge { font-family: 'Oswald', sans-serif; font-size: 16px; padding: 2px 8px; }
   .set-block-set1 .set-block-label, .set-block-set1 .set-total-badge, .set-block-set1 .end-head { color: var(--carpet-light); }
   .set-block-set2 .set-block-label, .set-block-set2 .set-total-badge, .set-block-set2 .end-head { color: var(--set2-fg); }
@@ -1900,39 +1905,50 @@ function EndsGrid({
   labelA,
   labelB,
   disabled,
+  redTeam,
   onSetEnd
 }) {
   const stop = fn => e => {
     e.stopPropagation();
     fn(e);
   };
-  const row = side => /*#__PURE__*/React.createElement("div", {
-    className: "ends-grid"
-  }, ends.map((_, i) => {
-    const val = endTotal(ends, i, side);
-    const explicit = ends[i] && ends[i][side] !== null && ends[i][side] !== undefined;
-    const shots = endShots(ends, i, side);
+  // Red/blue only styles the grid once a match actually has a redTeam
+  // assignment (see App's setRedTeam) — otherwise every input/pill falls
+  // back to the original neutral look, same as before red/blue existed.
+  const colourFor = side => redTeam ? redTeam === side ? 'red' : 'blue' : null;
+  const row = side => {
+    const colour = colourFor(side);
     return /*#__PURE__*/React.createElement("div", {
-      className: "end-cell",
-      key: i
-    }, /*#__PURE__*/React.createElement("input", {
-      type: "number",
-      inputMode: "numeric",
-      min: 0,
-      disabled: disabled,
-      className: "end-input",
-      value: val,
-      onClick: e => e.stopPropagation(),
-      onFocus: e => e.target.select(),
-      onChange: stop(e => {
-        const raw = e.target.value;
-        const n = raw === '' ? null : Math.max(0, parseInt(raw, 10) || 0);
-        onSetEnd(i, side, n);
-      })
-    }), /*#__PURE__*/React.createElement("div", {
-      className: "end-shot"
-    }, explicit && shots > 0 ? '+' + shots : ''));
-  }));
+      className: "ends-grid"
+    }, ends.map((_, i) => {
+      const val = endTotal(ends, i, side);
+      const explicit = ends[i] && ends[i][side] !== null && ends[i][side] !== undefined;
+      const shots = endShots(ends, i, side);
+      const scored = explicit && shots > 0;
+      return /*#__PURE__*/React.createElement("div", {
+        className: "end-cell",
+        key: i
+      }, /*#__PURE__*/React.createElement("input", {
+        type: "number",
+        inputMode: "numeric",
+        min: 0,
+        disabled: disabled,
+        className: 'end-input' + (colour ? ' end-input-' + colour : ''),
+        value: val,
+        onClick: e => e.stopPropagation(),
+        onFocus: e => e.target.select(),
+        onChange: stop(e => {
+          const raw = e.target.value;
+          const n = raw === '' ? null : Math.max(0, parseInt(raw, 10) || 0);
+          onSetEnd(i, side, n);
+        })
+      }), /*#__PURE__*/React.createElement("div", {
+        className: "end-shot"
+      }, scored && (colour ? /*#__PURE__*/React.createElement("span", {
+        className: 'end-shot-pill end-shot-pill-' + colour
+      }, shots) : '+' + shots)));
+    }));
+  };
   return /*#__PURE__*/React.createElement("div", {
     className: "ends-scroll"
   }, /*#__PURE__*/React.createElement("div", {
@@ -2005,6 +2021,7 @@ function MatchCard({
   }, setTotals(sets[idx].ends).a, "–", setTotals(sets[idx].ends).b)), /*#__PURE__*/React.createElement(EndsGrid, {
     ends: sets[idx].ends,
     disabled: match.final,
+    redTeam: match.redTeam,
     onSetEnd: (endIdx, side, value) => onSetEnd(match.id, match.disciplineCode, idx, endIdx, side, value)
   }));
   // Red/blue is purely a display convenience for the producer (e.g. bowl
