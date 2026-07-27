@@ -336,9 +336,10 @@
   .ends-wrap { display: flex; gap: 6px; align-items: flex-start; }
   .ends-labels { display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; }
   .end-label-spacer { height: 13px; }
-  .end-row-label { height: 45px; display: flex; align-items: center; font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.04em; color: var(--text-faint); white-space: nowrap; }
-  .end-row-label-red { color: var(--team-red); }
-  .end-row-label-blue { color: var(--team-blue); }
+  .end-row-label { height: 45px; display: flex; align-items: center; justify-content: center; }
+  .end-row-label-pill { background: var(--panel-raised); border: 1px solid var(--line); border-radius: 12px; padding: 4px 10px; font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.04em; color: var(--text-faint); white-space: nowrap; }
+  .end-row-label-red .end-row-label-pill { background: var(--team-red); border-color: var(--team-red); color: #fff; }
+  .end-row-label-blue .end-row-label-pill { background: var(--team-blue); border-color: var(--team-blue); color: #fff; }
   .ends-scroll { overflow-x: auto; padding-bottom: 2px; flex: 1; min-width: 0; }
   .ends-scroll .ends-grid + .ends-grid { margin-top: 8px; }
   .ends-grid { display: grid; grid-auto-columns: 40px; grid-auto-flow: column; gap: 4px; align-items: center; width: max-content; }
@@ -1964,9 +1965,13 @@ function EndsGrid({
     className: "end-label-spacer"
   }), /*#__PURE__*/React.createElement("div", {
     className: 'end-row-label' + (colourFor('a') ? ' end-row-label-' + colourFor('a') : '')
-  }, labelA || ''), /*#__PURE__*/React.createElement("div", {
+  }, labelA && /*#__PURE__*/React.createElement("span", {
+    className: "end-row-label-pill"
+  }, labelA)), /*#__PURE__*/React.createElement("div", {
     className: 'end-row-label' + (colourFor('b') ? ' end-row-label-' + colourFor('b') : '')
-  }, labelB || '')), /*#__PURE__*/React.createElement("div", {
+  }, labelB && /*#__PURE__*/React.createElement("span", {
+    className: "end-row-label-pill"
+  }, labelB))), /*#__PURE__*/React.createElement("div", {
     className: "ends-scroll"
   }, /*#__PURE__*/React.createElement("div", {
     className: "ends-grid"
