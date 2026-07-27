@@ -3202,11 +3202,7 @@ function App() {
     className: "main"
   }, view === 'wall' && /*#__PURE__*/React.createElement("div", {
     className: "view"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "view-header sched-header"
-  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-    className: "eyebrow"
-  }, day ? day.label + ' · ' + day.date : '', " · RINKS 1 & 4 ARE THE WORLD FEED"), /*#__PURE__*/React.createElement("h2", null, "Gallery Wall"))), day && day.sessions.length > 1 && /*#__PURE__*/React.createElement("div", {
+  }, day && day.sessions.length > 1 && /*#__PURE__*/React.createElement("div", {
     className: "wall-session-tabs"
   }, day.sessions.map((s, i) => /*#__PURE__*/React.createElement("button", {
     type: "button",
