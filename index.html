@@ -381,22 +381,27 @@
   .set-tab-active.set-tab-set2 { background: var(--set2-bg); border-color: var(--set2-fg); color: var(--set2-fg); }
   .set-tab-active.set-tab-tiebreak { background: rgba(255,107,94,0.15); border-color: var(--live); color: var(--live); }
 
-  /* -- Logsheet split preview (Gallery Wall "Logsheet" nav tab) --
-     Trying an alternative to the stacked setBlock -> actions -> expand-panel
-     -> LogSheet layout in the real MatchCard: score column pinned to the
-     left, log column filling the rest, both visible at once, no
-     expand/collapse toggle. Lives entirely in its own PreviewMatchCard
-     component with local-only state (never touches `scores` / Firestore),
-     so this can be reviewed on-device without risking the live match
-     cards. If it's approved, this is what gets folded back into the real
-     MatchCard body instead of the current expand-panel approach. */
-  .preview-note { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; font-size: 12px; color: var(--text-dim); line-height: 1.6; margin-bottom: 16px; max-width: 900px; }
-  .preview-note b { color: var(--text); }
-  .split-body { display: flex; gap: 14px; align-items: flex-start; }
-  .split-score-col { width: 230px; flex-shrink: 0; display: flex; flex-direction: column; gap: 10px; }
-  .split-log-col { flex: 1; min-width: 0; }
-  .split-log-col .panel { padding: 0; border: none; background: transparent; }
-  .split-log-col .log-list { max-height: 420px; }
+  /* -- Log mode --
+     A distraction-free full-screen view for producers who are purely
+     logging, not scoring: press L (ignored while typing in a field) to
+     drop the topbar, sidenav, session tabs and round tabs entirely, and
+     show just the two world-feed rinks' logsheets, full height. Each
+     card's header is reduced to identity + a static (non-editable) score
+     and current-end readout — the running score/tag/next-end UI belongs
+     to the ordinary Gallery Wall view, which is where scoring itself
+     still happens. Escape (or L again) exits back to the normal layout. */
+  .log-mode-page { flex: 1; display: flex; flex-direction: column; min-height: 0; padding: 14px 20px 20px; gap: 10px; }
+  .log-mode-topbar { display: flex; justify-content: space-between; align-items: center; }
+  .log-mode-hint { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.08em; color: var(--text-faint); }
+  .log-mode-exit { background: var(--panel); border: 1px solid var(--line); color: var(--text-dim); font-size: 12px; padding: 6px 12px; border-radius: 6px; }
+  .log-mode-grid { display: grid; grid-template-columns: 1fr 1fr; grid-auto-rows: 1fr; gap: 14px; flex: 1; min-height: 0; }
+  @media (max-width: 900px) { .log-mode-grid { grid-template-columns: 1fr; } }
+  .log-mode-card { max-height: none; height: 100%; }
+  .log-mode-card .match-card-body { flex: 1; min-height: 0; }
+  .log-mode-card .panel { flex: 1; display: flex; flex-direction: column; min-height: 0; padding: 0; border: none; background: transparent; }
+  .log-mode-card .log-list { flex: 1; min-height: 0; max-height: none; }
+  .log-mode-score { font-family: 'Oswald', sans-serif; font-size: 17px; color: var(--text); margin-top: 8px; }
+  .log-mode-end { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--carpet-light); margin-top: 3px; }
 
   /* -- Logsheet v2 -- */
   .tag-row { display: flex; gap: 6px; }
@@ -1923,9 +1928,6 @@ const NAV = [{
 }, {
   id: 'sync',
   label: 'Sync'
-}, {
-  id: 'logsheet',
-  label: 'Logsheet (preview)'
 }];
 function Flag({
   code
@@ -2471,316 +2473,66 @@ function LogSheet({
     onClick: () => onDelete(match.id, match.disciplineCode, e.id)
   }, "✕")))));
 }
-// One card in the "Logsheet (preview)" nav tab — reuses the real EndsGrid
-// and LogSheet components as-is (same colours, pills, tags, set-colour
-// classes) so what's on screen here is exactly what real scoring/logging
-// looks like, just rearranged: a fixed-width score column on the left
-// (always visible, no expand toggle) and the logsheet filling the rest of
-// the width on the right, instead of the two stacking vertically behind a
-// "Logsheet" expand button. State is local to this component only — no
-// updateMatch, no Firestore, no localStorage — so trying this out can't
-// touch a real live match.
-function PreviewMatchCard({
-  initial
+// Gallery Wall card used only in Log mode (see App's `logMode` state and
+// the 'l' keyboard shortcut). Deliberately much smaller than the real
+// MatchCard: no EndsGrid, no set tabs, no Mark final button, no upcoming
+// list, no world-feed chip — just identity plus a static, read-only score
+// and current-end readout (so a producer logging can still see where the
+// match stands without any of the scoring UI competing for space), then
+// the real LogSheet filling 100% of whatever's left. Uses the exact same
+// onLogAdd/onLogDelete/onLogEdit handlers as the ordinary MatchCard — this
+// is live logging against the real match, not a preview.
+function LogModeCard({
+  match,
+  onLogAdd,
+  onLogDelete,
+  onLogEdit
 }) {
-  const [match, setMatch] = useState(initial);
-  const [manualSetTab, setManualSetTab] = useState(null);
   const sets = match.sets;
-  const winner = match.final ? matchWinner(sets) : null;
-  const started = matchHasStarted(sets);
-  const tb = needsTiebreak(sets);
-  const nextEnd = match.final ? null : nextEndPointer(sets);
-  const autoSetIdx = (() => {
-    const label = currentSetLabel(sets);
-    return label === 'Tiebreak' ? 2 : label === 'Set 2' ? 1 : 0;
-  })();
-  const setTabs = [0, 1, ...(tb ? [2] : [])];
-  const activeSetIdx = manualSetTab !== null && setTabs.includes(manualSetTab) ? manualSetTab : autoSetIdx;
-  const setVariant = idx => idx === 2 ? 'tiebreak' : idx === 1 ? 'set2' : 'set1';
-  const onSetEnd = (setIdx, endIdx, side, value) => {
-    setMatch(prev => ({
-      ...prev,
-      sets: prev.sets.map((s, i) => i !== setIdx ? s : {
-        ends: s.ends.map((e, ei) => ei !== endIdx ? e : {
-          ...e,
-          [side]: value
-        })
-      })
-    }));
-  };
-  const onSetRedTeam = side => {
-    setMatch(prev => ({
-      ...prev,
-      redTeam: prev.redTeam === side ? null : side
-    }));
-  };
-  const onToggleFinal = () => setMatch(prev => ({
-    ...prev,
-    final: !prev.final
-  }));
-  const onLogAdd = (id, disc, payload) => setMatch(prev => ({
-    ...prev,
-    log: [...(prev.log || []), {
-      id: 'preview-' + Date.now() + '-' + Math.random(),
-      createdAt: Date.now(),
-      ...payload
-    }]
-  }));
-  const onLogDelete = (id, disc, entryId) => setMatch(prev => ({
-    ...prev,
-    log: (prev.log || []).filter(e => e.id !== entryId)
-  }));
-  const onLogEdit = (id, disc, entryId, payload) => setMatch(prev => ({
-    ...prev,
-    log: (prev.log || []).map(e => e.id === entryId ? {
-      ...e,
-      ...payload
-    } : e)
-  }));
-  const colourFor = side => match.redTeam ? match.redTeam === side ? 'red' : 'blue' : null;
-  const colourBtn = side => {
-    const c = colourFor(side);
-    return /*#__PURE__*/React.createElement("button", {
-      type: "button",
-      className: 'colour-toggle' + (c ? ' colour-toggle-' + c : ''),
-      onClick: e => {
-        e.stopPropagation();
-        onSetRedTeam(side);
-      },
-      title: c === 'red' ? 'Red team — tap to clear' : c === 'blue' ? 'Blue team' : 'Tap to set red team'
-    }, c ? c.toUpperCase() : 'SET');
-  };
-  const setTabBar = /*#__PURE__*/React.createElement("div", {
-    className: "set-tabs"
-  }, setTabs.map(idx => /*#__PURE__*/React.createElement("button", {
-    type: "button",
-    key: idx,
-    className: 'set-tab set-tab-' + setVariant(idx) + (activeSetIdx === idx ? ' set-tab-active' : ''),
-    onClick: () => setManualSetTab(idx)
-  }, idx === 2 ? 'TIEBREAK' : `SET ${idx + 1}`)));
-  const setBlock = idx => sets[idx] && /*#__PURE__*/React.createElement("div", {
-    className: 'set-block set-block-' + setVariant(idx),
-    key: idx
+  const setLabel = currentSetLabel(sets);
+  const endLabel = currentEndLabel(sets);
+  const s1 = setTotals(sets[0] && sets[0].ends);
+  const s2 = setTotals(sets[1] && sets[1].ends);
+  const tbTotals = setTotals(sets[2] && sets[2].ends);
+  const scoreLine = setLabel === 'Set 1' ? `SET 1 · ${s1.a}–${s1.b}` : setLabel === 'Set 2' ? `SET 1 ${s1.a}–${s1.b} · SET 2 ${s2.a}–${s2.b}` : `SET 1 ${s1.a}–${s1.b} · SET 2 ${s2.a}–${s2.b} · TB ${tbTotals.a}–${tbTotals.b}`;
+  const endLine = match.final ? 'FINAL' : `${setLabel.toUpperCase()} · END ${endLabel}`;
+  return /*#__PURE__*/React.createElement("div", {
+    className: 'match-card log-mode-card' + (match.final ? ' match-card-final' : '')
   }, /*#__PURE__*/React.createElement("div", {
-    className: "set-block-label"
-  }, /*#__PURE__*/React.createElement("span", null, idx === 2 ? 'Tiebreak' : `Set ${idx + 1} of 2`), /*#__PURE__*/React.createElement("span", {
-    className: "set-total-badge"
-  }, setTotals(sets[idx].ends).a, "–", setTotals(sets[idx].ends).b)), /*#__PURE__*/React.createElement(EndsGrid, {
-    ends: sets[idx].ends,
-    disabled: match.final,
-    redTeam: match.redTeam,
-    labelA: match.a,
-    labelB: match.b,
-    onSetEnd: (endIdx, side, value) => onSetEnd(idx, endIdx, side, value)
-  }));
-  const header = /*#__PURE__*/React.createElement("div", {
     className: "match-sticky-header"
   }, /*#__PURE__*/React.createElement("div", {
     className: "match-top"
   }, /*#__PURE__*/React.createElement("span", {
     className: "match-rink"
-  }, "RINK ", match.rink, match.matchNumber && ` · MATCH ${match.matchNumber}`), /*#__PURE__*/React.createElement(ProgressTag, {
-    started: started,
-    final: match.final
-  })), /*#__PURE__*/React.createElement("div", {
+  }, "RINK ", match.rink, match.matchNumber && ` · MATCH ${match.matchNumber}`)), /*#__PURE__*/React.createElement("div", {
     className: "match-teams-row"
   }, /*#__PURE__*/React.createElement("div", {
-    className: 'match-team' + (winner === 'a' ? ' match-team-winner' : '')
+    className: "match-team"
   }, /*#__PURE__*/React.createElement(Flag, {
     code: match.a
   }), /*#__PURE__*/React.createElement("span", {
     className: "team-name-wrap"
   }, /*#__PURE__*/React.createElement("span", {
     className: "team-name"
-  }, NATIONS[match.a]?.name)), winner === 'a' && /*#__PURE__*/React.createElement("span", {
-    className: "tag tag-winner"
-  }, "WINNER"), colourBtn('a')), /*#__PURE__*/React.createElement("div", {
-    className: 'match-team' + (winner === 'b' ? ' match-team-winner' : '')
+  }, NATIONS[match.a]?.name))), /*#__PURE__*/React.createElement("div", {
+    className: "match-team"
   }, /*#__PURE__*/React.createElement(Flag, {
     code: match.b
   }), /*#__PURE__*/React.createElement("span", {
     className: "team-name-wrap"
   }, /*#__PURE__*/React.createElement("span", {
     className: "team-name"
-  }, NATIONS[match.b]?.name)), winner === 'b' && /*#__PURE__*/React.createElement("span", {
-    className: "tag tag-winner"
-  }, "WINNER"), colourBtn('b'))));
-  const body = /*#__PURE__*/React.createElement("div", {
+  }, NATIONS[match.b]?.name)))), /*#__PURE__*/React.createElement("div", {
+    className: "log-mode-score"
+  }, scoreLine), /*#__PURE__*/React.createElement("div", {
+    className: "log-mode-end"
+  }, endLine)), /*#__PURE__*/React.createElement("div", {
     className: "match-card-body"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "tile-discipline"
-  }, DISCIPLINES[match.disciplineCode], " · preview data, not a real match"), nextEnd && /*#__PURE__*/React.createElement("div", {
-    className: "next-end-bar"
-  }, "NEXT: ", nextEndLabel(nextEnd)), !nextEnd && !match.final && started && /*#__PURE__*/React.createElement("div", {
-    className: "next-end-bar"
-  }, "ALL ENDS ENTERED — READY TO FINALIZE"), /*#__PURE__*/React.createElement("div", {
-    className: "split-body"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "split-score-col"
-  }, setTabBar, setBlock(activeSetIdx), /*#__PURE__*/React.createElement("div", {
-    className: "match-actions"
-  }, /*#__PURE__*/React.createElement("button", {
-    className: 'final-btn' + (match.final ? ' final-btn-active' : ''),
-    onClick: onToggleFinal
-  }, match.final ? 'Reopen' : 'Mark final'))), /*#__PURE__*/React.createElement("div", {
-    className: "split-log-col"
   }, /*#__PURE__*/React.createElement(LogSheet, {
     match: match,
     onAdd: onLogAdd,
     onDelete: onLogDelete,
     onEdit: onLogEdit
-  }))));
-  return /*#__PURE__*/React.createElement("div", {
-    className: 'match-card' + (match.final ? ' match-card-final' : '')
-  }, header, body);
-}
-// Two side-by-side preview cards, matching the real Gallery Wall's 2-up
-// .wall-grid layout at the same card width producers actually see on an
-// iPad in landscape — one mid-match (Set 1, red/blue assigned, a handful
-// of log entries already in) and one just starting (no colours assigned
-// yet, empty log), so both the "catching up on a live match" and
-// "starting fresh" cases are visible at once.
-function LogsheetPreview() {
-  const matchA = {
-    a: 'SCO',
-    b: 'WAL',
-    rink: 2,
-    matchNumber: 3,
-    disciplineCode: 'MP',
-    final: false,
-    redTeam: 'a',
-    sets: [{
-      ends: [{
-        a: 2,
-        b: 1
-      }, {
-        a: 4,
-        b: 3
-      }, {
-        a: 6,
-        b: 5
-      }, {
-        a: 9,
-        b: 6
-      }, {
-        a: null,
-        b: null
-      }]
-    }, {
-      ends: buildEmptyEnds('MP', 1)
-    }, {
-      ends: buildEmptyEnds('MP', 2)
-    }],
-    log: [{
-      id: 'p1',
-      createdAt: 1,
-      timecode: '00:06:30',
-      setLabel: 'Set 1',
-      endLabel: '1',
-      description: 'Rink change ahead of end 1, wind picking up',
-      rating: 0,
-      bestOfSet: false,
-      finalBowl: false
-    }, {
-      id: 'p2',
-      createdAt: 2,
-      timecode: '00:10:11',
-      setLabel: 'Set 1',
-      endLabel: '3',
-      description: 'Best of set so far — WAL take it on the last bowl',
-      rating: 4,
-      bestOfSet: true,
-      finalBowl: false
-    }, {
-      id: 'p3',
-      createdAt: 3,
-      timecode: '00:12:40',
-      setLabel: 'Set 1',
-      endLabel: '3',
-      description: 'Measure called, WAL wins it by a boot-lace',
-      rating: 3,
-      bestOfSet: false,
-      finalBowl: false
-    }, {
-      id: 'p4',
-      createdAt: 4,
-      timecode: '00:14:02',
-      setLabel: 'Set 1',
-      endLabel: '4',
-      description: 'SCO draws shot, both bowls tight to the jack',
-      rating: 0,
-      bestOfSet: false,
-      finalBowl: false
-    }]
-  };
-  const matchB = {
-    a: 'ENG',
-    b: 'NIR',
-    rink: 3,
-    matchNumber: 3,
-    disciplineCode: 'WS',
-    final: false,
-    redTeam: null,
-    sets: [{
-      ends: [{
-        a: 2,
-        b: 0
-      }, {
-        a: 2,
-        b: 3
-      }, {
-        a: null,
-        b: null
-      }, {
-        a: null,
-        b: null
-      }, {
-        a: null,
-        b: null
-      }, {
-        a: null,
-        b: null
-      }, {
-        a: null,
-        b: null
-      }]
-    }, {
-      ends: buildEmptyEnds('WS', 1)
-    }, {
-      ends: buildEmptyEnds('WS', 2)
-    }],
-    log: [{
-      id: 'p5',
-      createdAt: 1,
-      timecode: '00:03:15',
-      setLabel: 'Set 1',
-      endLabel: '2',
-      description: 'NIR level it up after a slow start',
-      rating: 0,
-      bestOfSet: false,
-      finalBowl: false
-    }]
-  };
-  return /*#__PURE__*/React.createElement("div", {
-    className: "view"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "view-header"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "eyebrow"
-  }, "LAYOUT TRIAL · NOT WIRED TO LIVE SCORES"), /*#__PURE__*/React.createElement("h2", null, "Logsheet (preview)")), /*#__PURE__*/React.createElement("div", {
-    className: "preview-note"
-  }, /*#__PURE__*/React.createElement("b", null, "What this is: "), "the same ", /*#__PURE__*/React.createElement("code", {
-    className: "inline"
-  }, "EndsGrid"), " and ", /*#__PURE__*/React.createElement("code", {
-    className: "inline"
-  }, "LogSheet"), " components used on the real Gallery Wall, rearranged into a fixed score column (left) plus a full-height log column (right) instead of the current stacked layout behind a Logsheet toggle. Colours, tags, pills and set-colour theming are all untouched — only the arrangement changed. These two cards use made-up data and don't read or write real scores. If this layout works for you on the iPad, it gets folded back into the real ", /*#__PURE__*/React.createElement("code", {
-    className: "inline"
-  }, "MatchCard"), "."), /*#__PURE__*/React.createElement("div", {
-    className: "wall-grid"
-  }, /*#__PURE__*/React.createElement(PreviewMatchCard, {
-    initial: matchA
-  }), /*#__PURE__*/React.createElement(PreviewMatchCard, {
-    initial: matchB
   })));
 }
 function Standings({
@@ -3410,6 +3162,32 @@ function App() {
   // can be open at once (keyed by match id), so a producer can watch two
   // logsheets side by side.
   const [expandedIds, setExpandedIds] = useState({});
+  // Log mode: a full-screen, furniture-free view of just the two
+  // world-feed rinks' logsheets (see LogModeCard) — topbar, sidenav,
+  // session/round tabs all disappear. Toggled with the 'L' key (ignored
+  // while typing in a field, so a log description containing the letter L
+  // doesn't flip the view out from under a producer mid-sentence); Escape
+  // always exits regardless of focus.
+  const [logMode, setLogMode] = useState(false);
+  useEffect(() => {
+    const isTypingTarget = () => {
+      const el = document.activeElement;
+      return !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable);
+    };
+    const onKey = e => {
+      if (e.key === 'Escape') {
+        if (logMode) setLogMode(false);
+        return;
+      }
+      if (isTypingTarget()) return;
+      if ((e.key === 'l' || e.key === 'L') && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        e.preventDefault();
+        setLogMode(v => !v);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [logMode]);
   // Manual "which match is the focused/main tile" override per rink slot
   // (0-3). Defaults to the first non-final match on that rink; clicking a
   // row in a tile's upcoming list sets an override here instead of
@@ -3727,6 +3505,30 @@ function App() {
       return next;
     });
   };
+  if (logMode) {
+    return /*#__PURE__*/React.createElement("div", {
+      className: 'bowls-console ' + (isLight ? 'theme-light' : '')
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "log-mode-page"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "log-mode-topbar"
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "log-mode-hint"
+    }, "LOG MODE · PRESS L OR ESC TO EXIT"), /*#__PURE__*/React.createElement("button", {
+      className: "log-mode-exit",
+      onClick: () => setLogMode(false)
+    }, "Exit log mode")), /*#__PURE__*/React.createElement("div", {
+      className: "log-mode-grid"
+    }, tvSlots.map(({
+      slot
+    }) => /*#__PURE__*/React.createElement(LogModeCard, {
+      key: slot.current.rink,
+      match: slot.current,
+      onLogAdd: addLogEntry,
+      onLogDelete: deleteLogEntry,
+      onLogEdit: editLogEntry
+    })))));
+  }
   return /*#__PURE__*/React.createElement("div", {
     className: 'bowls-console ' + (isLight ? 'theme-light' : '')
   }, /*#__PURE__*/React.createElement("div", {
@@ -3842,7 +3644,7 @@ function App() {
     scores
   }), view === 'sync' && /*#__PURE__*/React.createElement(Sync, {
     scores
-  }), view === 'logsheet' && /*#__PURE__*/React.createElement(LogsheetPreview, null))));
+  }))));
 }
 ReactDOM.createRoot(document.getElementById('root')).render(/*#__PURE__*/React.createElement(App, null));
 </script>
