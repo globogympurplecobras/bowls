@@ -216,8 +216,17 @@
   .status-btn { background: var(--panel); border: 1px solid var(--line); color: var(--text-dim); font-size: 12px; padding: 7px 12px; border-radius: 6px; }
   .status-btn-active { background: var(--carpet); border-color: var(--carpet-light); color: var(--text); }
 
-  .slot-picker { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-  .slot-picker select { font-family: 'IBM Plex Mono', monospace; font-size: 12px; background: var(--panel); border: 1px solid var(--line); color: var(--text); padding: 6px 10px; border-radius: 6px; }
+  .wall-session-tabs { display: flex; gap: 4px; }
+  .wall-session-tab { font-family: 'Oswald', sans-serif; font-size: 12px; letter-spacing: 0.05em; background: transparent; border: 1px solid var(--line); color: var(--text-dim); padding: 6px 12px; border-radius: 4px; }
+  .wall-session-tab-active { background: var(--carpet); border-color: var(--carpet-light); color: var(--text); }
+  .wall-row-tabs { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; margin-bottom: 4px; }
+  .wall-row-tab { flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; background: var(--panel); border: 1px solid var(--line); color: var(--text-faint); padding: 6px 10px; border-radius: 6px; min-width: 108px; }
+  .wall-row-tab-active { background: var(--carpet); border-color: var(--carpet-light); color: var(--text); }
+  .wall-row-tab-num { font-family: 'IBM Plex Mono', monospace; font-size: 9px; letter-spacing: 0.08em; color: var(--carpet-light); }
+  .wall-row-tab-active .wall-row-tab-num { color: var(--text); }
+  .wall-row-tab-time { font-family: 'Oswald', sans-serif; font-size: 13px; }
+  .wall-row-tab-match { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--text-dim); }
+  .wall-row-tab-active .wall-row-tab-match { color: var(--text); }
 
   .broadcast-frame { position: relative; background: #05070A; border-radius: 8px; overflow: hidden; aspect-ratio: 16/9; max-width: 640px; border: 1px solid var(--line); }
   .broadcast-feed { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--text-faint); font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.1em; background: repeating-linear-gradient(135deg, #0B0F14, #0B0F14 10px, #0D1218 10px, #0D1218 20px); }
@@ -253,14 +262,13 @@
   .log-input-tc { flex: 1.4; }
   .log-input-set { flex: 1; }
   .log-input-end { flex: 0.7; }
-  .log-input-clip { flex: 0.9; }
   .log-rating-row { display: flex; gap: 4px; }
   .log-rating-btn { background: transparent; border: 1px solid var(--line); color: var(--text-faint); border-radius: 4px; width: 28px; height: 28px; font-size: 14px; }
   .log-rating-btn-active { color: var(--standby); border-color: var(--standby); }
   .log-form-actions { display: flex; gap: 8px; }
   .log-form-actions .ghost-btn { flex: 1; }
   .ghost-btn-muted { color: var(--text-faint); border-color: var(--line); }
-  .log-list { display: flex; flex-direction: column; gap: 6px; max-height: 320px; overflow-y: auto; }
+  .log-list { display: flex; flex-direction: column; gap: 6px; max-height: 440px; overflow-y: auto; }
   .log-row { display: flex; align-items: flex-start; gap: 10px; font-size: 12px; color: var(--text-dim); padding: 6px 4px; border-bottom: 1px solid var(--line); }
   .log-row-editing { background: rgba(58,160,214,0.08); border-radius: 6px; }
   .log-row-tc { font-family: 'IBM Plex Mono', monospace; color: var(--text-faint); flex-shrink: 0; width: 60px; white-space: nowrap; }
@@ -337,7 +345,14 @@
   .mcell-num { font-family: 'IBM Plex Mono', monospace; font-size: 9px; color: var(--text-faint); background: var(--panel-raised); padding: 2px 5px; border-radius: 3px; }
   .end-shot { font-size: 9px; height: 11px; line-height: 11px; color: var(--carpet-light); font-family: 'IBM Plex Mono', monospace; }
   .set-total-badge { font-family: 'Oswald', sans-serif; font-size: 16px; padding: 2px 8px; }
+  .set-block-set1 .set-block-label, .set-block-set1 .set-total-badge, .set-block-set1 .end-head { color: var(--carpet-light); }
   .set-block-set2 .set-block-label, .set-block-set2 .set-total-badge, .set-block-set2 .end-head { color: var(--set2-fg); }
+  .set-block-tiebreak .set-block-label, .set-block-tiebreak .set-total-badge, .set-block-tiebreak .end-head { color: var(--live); }
+  .set-tabs { display: flex; gap: 6px; }
+  .set-tab { flex: 1; font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.06em; padding: 6px 8px; border-radius: 5px; border: 1px solid var(--line); background: transparent; color: var(--text-faint); }
+  .set-tab-active.set-tab-set1 { background: rgba(58,160,214,0.15); border-color: var(--carpet-light); color: var(--carpet-light); }
+  .set-tab-active.set-tab-set2 { background: var(--set2-bg); border-color: var(--set2-fg); color: var(--set2-fg); }
+  .set-tab-active.set-tab-tiebreak { background: rgba(255,107,94,0.15); border-color: var(--live); color: var(--live); }
 
   /* -- Logsheet v2 -- */
   .tag-row { display: flex; gap: 6px; }
@@ -357,7 +372,6 @@
   .dailylog-entry:first-of-type { border-top: none; }
   .dailylog-body { display: flex; align-items: baseline; gap: 10px; font-size: 13px; flex-wrap: wrap; }
   .dailylog-set { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--carpet-light); background: rgba(58,160,214,0.14); border-radius: 4px; padding: 2px 6px; flex-shrink: 0; }
-  .dailylog-clip { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--text-faint); background: var(--panel-raised); border: 1px solid var(--line); border-radius: 4px; padding: 2px 6px; flex-shrink: 0; }
   .dailylog-tc { font-family: 'IBM Plex Mono', monospace; color: var(--text-faint); flex-shrink: 0; white-space: nowrap; }
   .dailylog-desc { color: var(--text); flex: 1; }
   .dailylog-rating { color: var(--standby); letter-spacing: 1px; flex-shrink: 0; }
@@ -1522,10 +1536,14 @@ function commentatorLabel(code) {
   if (!code) return '';
   return code.split('&').map(c => COMMENTATORS[c] || c).join(' + ');
 }
-// Every match on a day, numbered 1..N in schedule order — session, then
-// row, then rink left-to-right (1,2,3,4) — regardless of which rink it's
-// on. Used so a producer can say "match 12" and mean one specific thing,
-// the same way across the Gallery Wall, Schedule and Daily Log.
+// Every match ROUND on a day, numbered 1..N in schedule order — one number
+// per time-slot (session, then row), shared by every rink playing in that
+// slot, rather than a separate number per rink. So "Match 1" is whatever's
+// on at the day's first scheduled time (rinks 1-4 all share it), "Match 2"
+// is the next time slot, and so on — matching how the event actually talks
+// about rounds ("Match 1, Rink 4"). Used so a producer can say "match 3"
+// and mean one specific round, the same way across the Gallery Wall,
+// Schedule and Daily Log.
 function buildDayMatchNumbers(dayId) {
   const day = SCHEDULE[dayId];
   const map = {};
@@ -1533,9 +1551,11 @@ function buildDayMatchNumbers(dayId) {
   let n = 0;
   day.sessions.forEach((session, si) => {
     session.rows.forEach((row, ri) => {
+      const hasMatch = row.matches.some(m => m);
+      if (!hasMatch) return;
+      n += 1;
       row.matches.forEach((m, idx) => {
         if (!m) return;
-        n += 1;
         map[`d${dayId}-s${si}-r${ri}-k${idx + 1}`] = n;
       });
     });
@@ -1948,12 +1968,38 @@ function MatchCard({
   const commentatorChip = match.commentatorCode && /*#__PURE__*/React.createElement("span", {
     className: "mcell-commentator tile-commentator"
   }, commentatorLabel(match.commentatorCode));
-  const setBlock = (idx, label) => sets[idx] && /*#__PURE__*/React.createElement("div", {
-    className: "set-block" + (idx === 1 ? ' set-block-set2' : ''),
+  // Only one set's scoresheet is shown at a time — tabs switch between
+  // them instead of stacking Set 1 / Set 2 / Tiebreak on top of each other,
+  // which used to eat most of the card's height and crowd out the
+  // logsheet below. Defaults to whichever set is actually in play
+  // (currentSetLabel, same logic the Logsheet's auto Set ID uses), but a
+  // manual tap on another tab overrides that — e.g. to go back and correct
+  // an earlier set — until the match changes.
+  const [manualSetTab, setManualSetTab] = useState(null);
+  useEffect(() => {
+    setManualSetTab(null);
+  }, [match.id]);
+  const autoSetIdx = (() => {
+    const label = currentSetLabel(sets);
+    return label === 'Tiebreak' ? 2 : label === 'Set 2' ? 1 : 0;
+  })();
+  const setTabs = [0, 1, ...(tb ? [2] : [])];
+  const activeSetIdx = manualSetTab !== null && setTabs.includes(manualSetTab) ? manualSetTab : autoSetIdx;
+  const setVariant = idx => idx === 2 ? 'tiebreak' : idx === 1 ? 'set2' : 'set1';
+  const setTabBar = /*#__PURE__*/React.createElement("div", {
+    className: "set-tabs"
+  }, setTabs.map(idx => /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    key: idx,
+    className: 'set-tab set-tab-' + setVariant(idx) + (activeSetIdx === idx ? ' set-tab-active' : ''),
+    onClick: () => setManualSetTab(idx)
+  }, idx === 2 ? 'TIEBREAK' : `SET ${idx + 1}`)));
+  const setBlock = idx => sets[idx] && /*#__PURE__*/React.createElement("div", {
+    className: 'set-block set-block-' + setVariant(idx),
     key: idx
   }, /*#__PURE__*/React.createElement("div", {
     className: "set-block-label"
-  }, /*#__PURE__*/React.createElement("span", null, label), /*#__PURE__*/React.createElement("span", {
+  }, /*#__PURE__*/React.createElement("span", null, idx === 2 ? 'Tiebreak' : `Set ${idx + 1} of 2`), /*#__PURE__*/React.createElement("span", {
     className: "set-total-badge"
   }, setTotals(sets[idx].ends).a, "–", setTotals(sets[idx].ends).b)), /*#__PURE__*/React.createElement(EndsGrid, {
     ends: sets[idx].ends,
@@ -2031,7 +2077,7 @@ function MatchCard({
     className: "next-end-bar"
   }, "NEXT: ", nextEndLabel(nextEnd)), !nextEnd && !match.final && started && /*#__PURE__*/React.createElement("div", {
     className: "next-end-bar"
-  }, "ALL ENDS ENTERED — READY TO FINALIZE"), setBlock(0, 'Set 1 of 2'), setBlock(1, 'Set 2 of 2'), tb && setBlock(2, 'Tiebreak'), /*#__PURE__*/React.createElement("div", {
+  }, "ALL ENDS ENTERED — READY TO FINALIZE"), setTabBar, setBlock(activeSetIdx), /*#__PURE__*/React.createElement("div", {
     className: "match-actions"
   }, /*#__PURE__*/React.createElement("button", {
     className: 'final-btn' + (match.final ? ' final-btn-active' : ''),
@@ -2133,7 +2179,6 @@ function LogSheet({
   const [setLabelTouched, setSetLabelTouched] = useState(false);
   const [endLabel, setEndLabel] = useState(defaultEndLabel);
   const [endLabelTouched, setEndLabelTouched] = useState(false);
-  const [clipNumber, setClipNumber] = useState('');
   const [description, setDescription] = useState('');
   const [rating, setRating] = useState(0);
   const [bestOfSet, setBestOfSet] = useState(false);
@@ -2156,7 +2201,6 @@ function LogSheet({
     setSetLabelTouched(false);
     setEndLabel(defaultEndLabel);
     setEndLabelTouched(false);
-    setClipNumber('');
     setDescription('');
     setRating(0);
     setBestOfSet(false);
@@ -2169,7 +2213,6 @@ function LogSheet({
     setSetLabelTouched(true);
     setEndLabel(e.endLabel || defaultEndLabel);
     setEndLabelTouched(true);
-    setClipNumber(e.clipNumber || '');
     setDescription(e.description || '');
     setRating(e.rating || 0);
     setBestOfSet(!!e.bestOfSet);
@@ -2181,7 +2224,6 @@ function LogSheet({
       timecode: timecode.trim(),
       setLabel: setLabel.trim(),
       endLabel: endLabel.trim(),
-      clipNumber: clipNumber.trim(),
       description: description.trim(),
       rating,
       bestOfSet,
@@ -2225,11 +2267,6 @@ function LogSheet({
       setEndLabelTouched(true);
       setEndLabel(e.target.value);
     }
-  }), /*#__PURE__*/React.createElement("input", {
-    className: "log-input log-input-clip",
-    placeholder: "Clip #",
-    value: clipNumber,
-    onChange: e => setClipNumber(e.target.value)
   })), /*#__PURE__*/React.createElement("textarea", {
     className: "log-input log-input-desc",
     placeholder: "What happened... (Enter to add, Shift+Enter for a new line)",
@@ -2424,9 +2461,7 @@ function DailyLog({
     className: "dailylog-tc"
   }, entry.timecode || '—'), entry.setLabel && /*#__PURE__*/React.createElement("span", {
     className: "dailylog-set"
-  }, entry.setLabel), entry.clipNumber && /*#__PURE__*/React.createElement("span", {
-    className: "dailylog-clip"
-  }, "CLIP ", entry.clipNumber), /*#__PURE__*/React.createElement("span", {
+  }, entry.setLabel), /*#__PURE__*/React.createElement("span", {
     className: "dailylog-desc"
   }, entry.description), entry.bestOfSet && /*#__PURE__*/React.createElement("span", {
     className: "log-tag-chip"
@@ -2865,10 +2900,6 @@ function App() {
     setSi(0);
     setFocusOverride({});
   };
-  const changeSession = i => {
-    setSi(i);
-    setFocusOverride({});
-  };
 
   // Firebase mode: listen for remote score changes (so a second device's
   // edits — or another producer stepping to a different match — show up
@@ -3066,6 +3097,57 @@ function App() {
     rinkIdx,
     slot: rinkSlots[rinkIdx]
   })).filter(x => x.slot);
+  // Every scheduled round WITHIN THE CURRENT SESSION (session + row), each
+  // carrying rink 1 and rink 4's fixture — the two world-feed rinks shown
+  // on this page — so the round sub-tab strip can label itself with
+  // tri-codes instead of a bare time. Session switching stays a separate,
+  // higher-level tab strip (selectSession) above this one; picking a round
+  // here only ever pins focus within whatever session is already selected.
+  const sessionRows = useMemo(() => {
+    if (!day || !day.sessions[si]) return [];
+    const out = [];
+    day.sessions[si].rows.forEach((row, rIdx) => {
+      if (!row.matches.some(m => m)) return;
+      out.push({
+        ri: rIdx,
+        time: row.time,
+        m1: row.matches[0],
+        m4: row.matches[3],
+        matchNumber: dayMatchNumbers[`d${dayId}-s${si}-r${rIdx}-k1`] || dayMatchNumbers[`d${dayId}-s${si}-r${rIdx}-k4`] || dayMatchNumbers[`d${dayId}-s${si}-r${rIdx}-k2`] || dayMatchNumbers[`d${dayId}-s${si}-r${rIdx}-k3`]
+      });
+    });
+    return out;
+  }, [day, dayId, si, dayMatchNumbers]);
+  // Which round sub-tab is highlighted as "current" — read off rink 1's
+  // (falling back to rink 4's) actual on-screen match rather than tracked
+  // as its own separate piece of state, so the strip always agrees with
+  // whatever tile is actually showing (including ordinary per-rink
+  // auto-advance when a match is marked final) without a second source of
+  // truth to keep in sync.
+  const activeRi = (() => {
+    const ref = tvSlots.find(t => t.rinkIdx === 0) || tvSlots.find(t => t.rinkIdx === 3);
+    if (!ref) return null;
+    const m = ref.slot.current.id.match(/-s(\d+)-r(\d+)-/);
+    return m ? Number(m[2]) : null;
+  })();
+  // Switches AM/PM session — clears any manual per-rink focus pick, same
+  // as the old session dropdown did, since a pick from the previous
+  // session won't generally line up with this one's rink-slot matches.
+  const selectSession = i => {
+    setSi(i);
+    setFocusOverride({});
+  };
+  // Clicking a round sub-tab pins both world-feed rinks' focus to their
+  // match in that row, within the already-selected session — same
+  // mechanism the per-rink "upcoming" list uses for a single rink.
+  const selectRow = row => {
+    setFocusOverride(prev => {
+      const next = { ...prev };
+      if (row.m1) next[0] = `d${dayId}-s${si}-r${row.ri}-k1`;
+      if (row.m4) next[3] = `d${dayId}-s${si}-r${row.ri}-k4`;
+      return next;
+    });
+  };
   return /*#__PURE__*/React.createElement("div", {
     className: 'bowls-console ' + (isLight ? 'theme-light' : '')
   }, /*#__PURE__*/React.createElement("div", {
@@ -3123,17 +3205,32 @@ function App() {
     className: "view-header sched-header"
   }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     className: "eyebrow"
-  }, day ? day.label + ' · ' + day.date : '', " · RINKS 1 & 4 ARE THE WORLD FEED"), /*#__PURE__*/React.createElement("h2", null, "Gallery Wall")), day && /*#__PURE__*/React.createElement("div", {
-    className: "slot-picker"
-  }, /*#__PURE__*/React.createElement("select", {
-    value: si,
-    onChange: e => {
-      changeSession(Number(e.target.value));
-    }
-  }, day.sessions.map((s, i) => /*#__PURE__*/React.createElement("option", {
+  }, day ? day.label + ' · ' + day.date : '', " · RINKS 1 & 4 ARE THE WORLD FEED"), /*#__PURE__*/React.createElement("h2", null, "Gallery Wall"))), day && day.sessions.length > 1 && /*#__PURE__*/React.createElement("div", {
+    className: "wall-session-tabs"
+  }, day.sessions.map((s, i) => /*#__PURE__*/React.createElement("button", {
+    type: "button",
     key: i,
-    value: i
-  }, s.name))))), tvSlots.length === 0 && /*#__PURE__*/React.createElement("div", {
+    className: 'wall-session-tab' + (i === si ? ' wall-session-tab-active' : ''),
+    onClick: () => selectSession(i)
+  }, s.name))), day && sessionRows.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "wall-row-tabs"
+  }, sessionRows.map(row => {
+    const active = row.ri === activeRi;
+    return /*#__PURE__*/React.createElement("button", {
+      type: "button",
+      key: row.ri,
+      className: 'wall-row-tab' + (active ? ' wall-row-tab-active' : ''),
+      onClick: () => selectRow(row)
+    }, row.matchNumber && /*#__PURE__*/React.createElement("span", {
+      className: "wall-row-tab-num"
+    }, "M", row.matchNumber), /*#__PURE__*/React.createElement("span", {
+      className: "wall-row-tab-time"
+    }, row.time), /*#__PURE__*/React.createElement("span", {
+      className: "wall-row-tab-match"
+    }, row.m1 ? `${row.m1[1]} v ${row.m1[2]}` : '—'), /*#__PURE__*/React.createElement("span", {
+      className: "wall-row-tab-match"
+    }, row.m4 ? `${row.m4[1]} v ${row.m4[2]}` : '—'));
+  })), tvSlots.length === 0 && /*#__PURE__*/React.createElement("div", {
     className: "day-note"
   }, "No matches with confirmed teams in this session yet (likely a semi-final or medal-match placeholder) — nothing to track live here."), /*#__PURE__*/React.createElement("div", {
     className: "section-label"
