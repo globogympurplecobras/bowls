@@ -398,6 +398,7 @@
   @media (max-width: 900px) { .log-mode-grid { grid-template-columns: 1fr; } }
   .log-mode-card { max-height: none; height: 100%; }
   .log-mode-card .match-card-body { flex: 1; min-height: 0; }
+  .log-mode-scoring { flex-shrink: 0; margin-bottom: 4px; }
   .log-mode-card .panel { flex: 1; display: flex; flex-direction: column; min-height: 0; padding: 0; border: none; background: transparent; }
   .log-mode-card .log-list { flex: 1; min-height: 0; max-height: none; }
   .log-mode-score { font-family: 'Oswald', sans-serif; font-size: 17px; color: var(--text); margin-top: 8px; }
@@ -2474,21 +2475,28 @@ function LogSheet({
   }, "✕")))));
 }
 // Gallery Wall card used only in Log mode (see App's `logMode` state and
-// the 'l' keyboard shortcut). Deliberately much smaller than the real
-// MatchCard: no EndsGrid, no set tabs, no Mark final button, no upcoming
-// list, no world-feed chip — just identity plus a static, read-only score
-// and current-end readout (so a producer logging can still see where the
-// match stands without any of the scoring UI competing for space), then
-// the real LogSheet filling 100% of whatever's left. Uses the exact same
-// onLogAdd/onLogDelete/onLogEdit handlers as the ordinary MatchCard — this
-// is live logging against the real match, not a preview.
+// the 'l' keyboard shortcut). Same scoring system as the ordinary
+// MatchCard — set tabs, the real EndsGrid, red/blue colour toggles, Mark
+// final — plus a static score/current-end readout in the header for a
+// glance without scrolling, but with no upcoming list and no world-feed
+// chip, and the LogSheet filling 100% of whatever vertical space the
+// scoring block doesn't need (instead of sitting behind a Logsheet
+// expand toggle). Uses the exact same onSetEnd/onToggleFinal/
+// onSetRedTeam/onLogAdd/onLogDelete/onLogEdit handlers as the ordinary
+// MatchCard — this is live scoring and logging against the real match,
+// not a preview.
 function LogModeCard({
   match,
+  onSetEnd,
+  onToggleFinal,
+  onSetRedTeam,
   onLogAdd,
   onLogDelete,
   onLogEdit
 }) {
+  const [manualSetTab, setManualSetTab] = useState(null);
   const sets = match.sets;
+  const tb = needsTiebreak(sets);
   const setLabel = currentSetLabel(sets);
   const endLabel = currentEndLabel(sets);
   const s1 = setTotals(sets[0] && sets[0].ends);
@@ -2496,6 +2504,49 @@ function LogModeCard({
   const tbTotals = setTotals(sets[2] && sets[2].ends);
   const scoreLine = setLabel === 'Set 1' ? `SET 1 · ${s1.a}–${s1.b}` : setLabel === 'Set 2' ? `SET 1 ${s1.a}–${s1.b} · SET 2 ${s2.a}–${s2.b}` : `SET 1 ${s1.a}–${s1.b} · SET 2 ${s2.a}–${s2.b} · TB ${tbTotals.a}–${tbTotals.b}`;
   const endLine = match.final ? 'FINAL' : `${setLabel.toUpperCase()} · END ${endLabel}`;
+  const autoSetIdx = (() => {
+    const label = currentSetLabel(sets);
+    return label === 'Tiebreak' ? 2 : label === 'Set 2' ? 1 : 0;
+  })();
+  const setTabs = [0, 1, ...(tb ? [2] : [])];
+  const activeSetIdx = manualSetTab !== null && setTabs.includes(manualSetTab) ? manualSetTab : autoSetIdx;
+  const setVariant = idx => idx === 2 ? 'tiebreak' : idx === 1 ? 'set2' : 'set1';
+  const colourFor = side => match.redTeam ? match.redTeam === side ? 'red' : 'blue' : null;
+  const colourBtn = side => {
+    const c = colourFor(side);
+    return /*#__PURE__*/React.createElement("button", {
+      type: "button",
+      className: 'colour-toggle' + (c ? ' colour-toggle-' + c : ''),
+      onClick: e => {
+        e.stopPropagation();
+        onSetRedTeam(match.id, match.disciplineCode, side);
+      },
+      title: c === 'red' ? 'Red team — tap to clear' : c === 'blue' ? 'Blue team' : 'Tap to set red team'
+    }, c ? c.toUpperCase() : 'SET');
+  };
+  const setTabBar = /*#__PURE__*/React.createElement("div", {
+    className: "set-tabs"
+  }, setTabs.map(idx => /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    key: idx,
+    className: 'set-tab set-tab-' + setVariant(idx) + (activeSetIdx === idx ? ' set-tab-active' : ''),
+    onClick: () => setManualSetTab(idx)
+  }, idx === 2 ? 'TIEBREAK' : `SET ${idx + 1}`)));
+  const setBlock = idx => sets[idx] && /*#__PURE__*/React.createElement("div", {
+    className: 'set-block set-block-' + setVariant(idx),
+    key: idx
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "set-block-label"
+  }, /*#__PURE__*/React.createElement("span", null, idx === 2 ? 'Tiebreak' : `Set ${idx + 1} of 2`), /*#__PURE__*/React.createElement("span", {
+    className: "set-total-badge"
+  }, setTotals(sets[idx].ends).a, "–", setTotals(sets[idx].ends).b)), /*#__PURE__*/React.createElement(EndsGrid, {
+    ends: sets[idx].ends,
+    disabled: match.final,
+    redTeam: match.redTeam,
+    labelA: match.a,
+    labelB: match.b,
+    onSetEnd: (endIdx, side, value) => onSetEnd(match.id, match.disciplineCode, idx, endIdx, side, value)
+  }));
   return /*#__PURE__*/React.createElement("div", {
     className: 'match-card log-mode-card' + (match.final ? ' match-card-final' : '')
   }, /*#__PURE__*/React.createElement("div", {
@@ -2514,7 +2565,7 @@ function LogModeCard({
     className: "team-name-wrap"
   }, /*#__PURE__*/React.createElement("span", {
     className: "team-name"
-  }, NATIONS[match.a]?.name))), /*#__PURE__*/React.createElement("div", {
+  }, NATIONS[match.a]?.name)), colourBtn('a')), /*#__PURE__*/React.createElement("div", {
     className: "match-team"
   }, /*#__PURE__*/React.createElement(Flag, {
     code: match.b
@@ -2522,13 +2573,20 @@ function LogModeCard({
     className: "team-name-wrap"
   }, /*#__PURE__*/React.createElement("span", {
     className: "team-name"
-  }, NATIONS[match.b]?.name)))), /*#__PURE__*/React.createElement("div", {
+  }, NATIONS[match.b]?.name)), colourBtn('b'))), /*#__PURE__*/React.createElement("div", {
     className: "log-mode-score"
   }, scoreLine), /*#__PURE__*/React.createElement("div", {
     className: "log-mode-end"
   }, endLine)), /*#__PURE__*/React.createElement("div", {
     className: "match-card-body"
-  }, /*#__PURE__*/React.createElement(LogSheet, {
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "log-mode-scoring"
+  }, setTabBar, setBlock(activeSetIdx), /*#__PURE__*/React.createElement("div", {
+    className: "match-actions"
+  }, /*#__PURE__*/React.createElement("button", {
+    className: 'final-btn' + (match.final ? ' final-btn-active' : ''),
+    onClick: () => onToggleFinal(match.id, match.disciplineCode)
+  }, match.final ? 'Reopen' : 'Mark final'))), /*#__PURE__*/React.createElement(LogSheet, {
     match: match,
     onAdd: onLogAdd,
     onDelete: onLogDelete,
@@ -3524,6 +3582,9 @@ function App() {
     }) => /*#__PURE__*/React.createElement(LogModeCard, {
       key: slot.current.rink,
       match: slot.current,
+      onSetEnd: setEndScore,
+      onToggleFinal: toggleFinal,
+      onSetRedTeam: setRedTeam,
       onLogAdd: addLogEntry,
       onLogDelete: deleteLogEntry,
       onLogEdit: editLogEntry
