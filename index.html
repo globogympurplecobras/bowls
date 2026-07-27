@@ -208,6 +208,17 @@
   .mcell-disc-PXP, .mcell-disc-PMP, .mcell-disc-PWP { background: var(--disc-para-bg); color: var(--disc-para-fg); }
   .mcell-teams { display: inline-flex; align-items: center; gap: 4px; }
   .mcell-label { font-style: italic; color: var(--standby); font-weight: 600; }
+  .mcell-editing { flex-basis: 100%; background: var(--panel-raised); }
+  .mcell-setteams-btn, .mcell-clearteams-btn { font-family: 'Manrope', sans-serif; font-size: 11px; font-weight: 600; background: var(--panel-raised); border: 1px solid var(--line); color: var(--text-dim); padding: 2px 7px; border-radius: 4px; cursor: pointer; }
+  .mcell-setteams-btn:hover, .mcell-clearteams-btn:hover { color: var(--text); border-color: var(--carpet-light); }
+  .mcell-clearteams-btn { padding: 2px 6px; }
+  .team-picker { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; padding-top: 6px; border-top: 1px dashed var(--line); }
+  .team-picker-select { font-family: 'Manrope', sans-serif; font-size: 12px; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 4px; padding: 4px 6px; }
+  .team-picker-actions { display: inline-flex; gap: 6px; }
+  .team-picker-save, .team-picker-cancel { font-family: 'Manrope', sans-serif; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 4px; cursor: pointer; }
+  .team-picker-save { background: var(--carpet-light); color: var(--panel); border: 1px solid var(--carpet-light); }
+  .team-picker-save:disabled { opacity: 0.5; cursor: not-allowed; }
+  .team-picker-cancel { background: transparent; border: 1px solid var(--line); color: var(--text-dim); }
 
   .back-btn { display: inline-flex; align-items: center; gap: 4px; background: none; border: none; color: var(--text-dim); font-size: 13px; margin-bottom: 16px; padding: 0; }
   .back-btn:hover { color: var(--text); }
@@ -1095,7 +1106,7 @@ const SCHEDULE = [{
     }, {
       "time": "19:00",
       "tv1": "CH&DJ",
-      "matches": [["PXP", null, "SEMI FINAL 1"], null, null, ["PXP", null, "SEMI FINAL 2"]],
+      "matches": [["PXP", "WAL", "ENG"], null, null, ["PXP", "SCO", "NZL"]],
       "tv4": "P&B"
     }, {
       "time": "20:40",
@@ -1487,10 +1498,13 @@ function buildDisciplineStandings(disciplineCode, scores) {
       session.rows.forEach((row, ri) => {
         row.matches.forEach((m, idx) => {
           if (!m) return;
-          const [discCode, home, away] = m;
-          if (discCode !== disciplineCode || !home) return;
           const rink = idx + 1;
           const id = `d${dayId}-s${si}-r${ri}-k${rink}`;
+          const resolved = resolveMatchTeams(m, id, scores);
+          if (!resolved || resolved.discCode !== disciplineCode || !resolved.home) return;
+          const discCode = resolved.discCode;
+          const home = resolved.home;
+          const away = resolved.away;
           const result = coerceScoreState(scores[id], discCode);
           if (!result.final) return;
           const totalsForMatch = matchShotTotals(result.sets);
@@ -1537,7 +1551,7 @@ function loadLocalScores() {
 // rink" rather than just whatever row happens to be selected. Commentator
 // codes only exist for rinks 1 and 4 (the world-feed rinks); other rinks
 // carry no commentatorCode and the tile simply won't show a chip.
-function buildRinkSessionMatches(dayId, si, rinkIdx) {
+function buildRinkSessionMatches(dayId, si, rinkIdx, scores) {
   const day = SCHEDULE[dayId];
   const session = day && day.sessions[si];
   if (!session) return [];
@@ -1545,20 +1559,21 @@ function buildRinkSessionMatches(dayId, si, rinkIdx) {
   session.rows.forEach((row, ri) => {
     const m = row.matches[rinkIdx];
     if (!m) return;
-    const [discCode, home, away] = m;
-    if (!home) return;
     const rink = rinkIdx + 1;
+    const id = `d${dayId}-s${si}-r${ri}-k${rink}`;
+    const resolved = resolveMatchTeams(m, id, scores);
+    if (!resolved || !resolved.home) return;
     out.push({
-      id: `d${dayId}-s${si}-r${ri}-k${rink}`,
+      id,
       rink,
       isTV: rinkIdx === 0 || rinkIdx === 3,
-      discipline: DISCIPLINES[discCode] || discCode,
-      disciplineCode: discCode,
+      discipline: DISCIPLINES[resolved.discCode] || resolved.discCode,
+      disciplineCode: resolved.discCode,
       section: row.time,
       time: row.time,
       commentatorCode: rinkIdx === 0 ? row.tv1 : rinkIdx === 3 ? row.tv4 : null,
-      a: home,
-      b: away
+      a: resolved.home,
+      b: resolved.away
     });
   });
   return out;
@@ -1648,7 +1663,16 @@ function defaultScoreState(disciplineCode) {
     // Which side ('a' or 'b') is wearing red — the other side is blue by
     // implication, so there's only ever one field to store/toggle rather
     // than two that could disagree. null means no colours assigned yet.
-    redTeam: null
+    redTeam: null,
+    // Manually-picked matchup for a placeholder schedule slot — semi-final
+    // / medal-match rows whose schedule tuple has no home team yet (the
+    // "away" slot instead holds a display label like "SEMI FINAL 1"). Set
+    // via the Schedule tab's "Set teams" picker (see setMatchTeams in
+    // App() and resolveMatchTeams below); null until a producer fills it
+    // in. Stored on this same match doc — same sync path as score edits —
+    // rather than a separate collection.
+    overrideA: null,
+    overrideB: null
   };
 }
 // Running total for one side as of a given end index — the explicit value
@@ -1728,7 +1752,45 @@ function coerceScoreState(raw, disciplineCode) {
     sets,
     notes: typeof raw.notes === 'string' ? raw.notes : '',
     log: Array.isArray(raw.log) ? raw.log : [],
-    redTeam: raw.redTeam === 'a' || raw.redTeam === 'b' ? raw.redTeam : null
+    redTeam: raw.redTeam === 'a' || raw.redTeam === 'b' ? raw.redTeam : null,
+    overrideA: typeof raw.overrideA === 'string' ? raw.overrideA : null,
+    overrideB: typeof raw.overrideB === 'string' ? raw.overrideB : null
+  };
+}
+// Placeholder schedule slots (semi-finals / medal matches not yet drawn)
+// store a schedule tuple like `["PXP", null, "SEMI FINAL 1"]` — the third
+// element there is a display label, not a nation code. Once a producer
+// picks the real matchup via the Schedule tab, the two nation codes land as
+// overrideA/overrideB on that match id's own score doc (setMatchTeams in
+// App()), so they sync over the exact same Firestore/localStorage path as
+// score edits, with no separate collection to keep in sync. Every reader
+// that needs a schedule tuple's actual teams (Gallery Wall session lists,
+// standings, daily log) should go through this rather than destructuring
+// the tuple directly, so a resolved placeholder behaves identically
+// everywhere the moment it's set.
+function resolveMatchTeams(m, id, scores) {
+  if (!m) return null;
+  const [discCode, home, away] = m;
+  if (home) return {
+    discCode,
+    home,
+    away,
+    placeholderLabel: null
+  };
+  const state = scores && scores[id];
+  if (state && state.overrideA && state.overrideB) {
+    return {
+      discCode,
+      home: state.overrideA,
+      away: state.overrideB,
+      placeholderLabel: null
+    };
+  }
+  return {
+    discCode,
+    home: null,
+    away: null,
+    placeholderLabel: away
   };
 }
 function needsTiebreak(sets) {
@@ -2780,10 +2842,10 @@ function buildDailyLog(dayId, scores) {
     session.rows.forEach((row, ri) => {
       row.matches.forEach((m, idx) => {
         if (!m) return;
-        const [discCode, home, away] = m;
-        if (!home) return;
         const rink = idx + 1;
         const id = `d${dayId}-s${si}-r${ri}-k${rink}`;
+        const resolved = resolveMatchTeams(m, id, scores);
+        if (!resolved || !resolved.home) return;
         const log = scores[id] && scores[id].log;
         const entries = (log || []).filter(entry => entry.bestOfSet || entry.finalBowl).sort((a, b) => a.createdAt - b.createdAt);
         if (!entries.length) return;
@@ -2792,9 +2854,9 @@ function buildDailyLog(dayId, scores) {
           matchNumber: dayMatchNumbers[id],
           rink,
           time: row.time,
-          discipline: DISCIPLINES[discCode] || discCode,
-          a: home,
-          b: away,
+          discipline: DISCIPLINES[resolved.discCode] || resolved.discCode,
+          a: resolved.home,
+          b: resolved.away,
           entries
         });
       });
@@ -2857,20 +2919,82 @@ function DailyLog({
     className: "log-tag-chip log-tag-chip-final"
   }, "FINAL BOWL")))))));
 }
+// Inline "which two nations are actually playing" picker for a placeholder
+// schedule slot (semi-final / medal-match row — see resolveMatchTeams).
+// Deliberately just two plain <select>s scoped to whatever nations have a
+// roster entry for this discipline, rather than a free-text field, so a
+// producer can't typo a code that then fails to resolve any athlete data.
+function TeamPicker({
+  disciplineCode,
+  onSave,
+  onCancel
+}) {
+  const options = useMemo(() => Object.keys(ROSTERS[disciplineCode] || {}).sort((x, y) => (NATIONS[x] && NATIONS[x].name || x).localeCompare(NATIONS[y] && NATIONS[y].name || y)), [disciplineCode]);
+  const [a, setA] = useState('');
+  const [b, setB] = useState('');
+  return /*#__PURE__*/React.createElement("div", {
+    className: "team-picker",
+    onClick: e => e.stopPropagation()
+  }, /*#__PURE__*/React.createElement("select", {
+    className: "team-picker-select",
+    value: a,
+    onChange: e => setA(e.target.value)
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "Team A…"), options.map(code => /*#__PURE__*/React.createElement("option", {
+    key: code,
+    value: code
+  }, NATIONS[code] && NATIONS[code].name || code))), /*#__PURE__*/React.createElement("select", {
+    className: "team-picker-select",
+    value: b,
+    onChange: e => setB(e.target.value)
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "Team B…"), options.map(code => /*#__PURE__*/React.createElement("option", {
+    key: code,
+    value: code
+  }, NATIONS[code] && NATIONS[code].name || code))), /*#__PURE__*/React.createElement("div", {
+    className: "team-picker-actions"
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "team-picker-save",
+    disabled: !a || !b || a === b,
+    onClick: () => onSave(a, b)
+  }, "Save"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "team-picker-cancel",
+    onClick: onCancel
+  }, "Cancel")));
+}
 function MatchCell({
   m,
+  id,
   tv,
   code,
   number,
-  onClick
+  onClick,
+  scores,
+  editing,
+  onStartEdit,
+  onCancelEdit,
+  onSaveTeams,
+  onClearTeams
 }) {
   if (m === null) return /*#__PURE__*/React.createElement("div", {
     className: "mcell mcell-empty"
   }, "—");
-  const [disc, home, away] = m;
-  const clickable = home && onClick;
+  const [disc] = m;
+  // A placeholder row is one whose schedule tuple never had a real home
+  // team (m[1] is null) — its third element is a display label like "SEMI
+  // FINAL 1", not a nation code. resolveMatchTeams fills in home/away from
+  // overrideA/overrideB the moment a producer has picked the real matchup.
+  const isPlaceholder = !m[1];
+  const resolved = resolveMatchTeams(m, id, scores);
+  const home = resolved && resolved.home;
+  const away = resolved && resolved.away;
+  const clickable = home && onClick && !editing;
   return /*#__PURE__*/React.createElement("div", {
-    className: 'mcell ' + (tv ? 'mcell-tv' : '') + (clickable ? ' session-row-clickable' : ''),
+    className: 'mcell ' + (tv ? 'mcell-tv' : '') + (clickable ? ' session-row-clickable' : '') + (editing ? ' mcell-editing' : ''),
     role: clickable ? 'button' : undefined,
     tabIndex: clickable ? 0 : undefined,
     onClick: clickable ? onClick : undefined,
@@ -2890,14 +3014,39 @@ function MatchCell({
     className: "mcell-teams"
   }, home, " v ", away) : /*#__PURE__*/React.createElement("span", {
     className: "mcell-label"
-  }, away));
+  }, resolved && resolved.placeholderLabel), isPlaceholder && !editing && onStartEdit && /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "mcell-setteams-btn",
+    onClick: e => {
+      e.stopPropagation();
+      onStartEdit();
+    }
+  }, home ? 'Edit' : 'Set teams'), isPlaceholder && home && !editing && onClearTeams && /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "mcell-clearteams-btn",
+    title: "Clear matchup",
+    onClick: e => {
+      e.stopPropagation();
+      onClearTeams();
+    }
+  }, "✕"), isPlaceholder && editing && /*#__PURE__*/React.createElement(TeamPicker, {
+    disciplineCode: disc,
+    onSave: onSaveTeams,
+    onCancel: onCancelEdit
+  }));
 }
 function Schedule({
   dayId,
-  onJumpToMatch
+  onJumpToMatch,
+  scores,
+  onSetTeams,
+  onClearTeams
 }) {
   const day = SCHEDULE[dayId];
   const [showLegend, setShowLegend] = useState(false);
+  // Which placeholder cell (by match id) currently has its "Set teams"
+  // picker open — at most one at a time, across the whole day.
+  const [editingId, setEditingId] = useState(null);
   const dayMatchNumbers = useMemo(() => buildDayMatchNumbers(dayId), [dayId]);
   return /*#__PURE__*/React.createElement("div", {
     className: "view"
@@ -2936,28 +3085,48 @@ function Schedule({
     className: "legend-row"
   }, /*#__PURE__*/React.createElement("b", null, "Rink 1 & 4"), " World feed — commentated, on the international broadcast"), /*#__PURE__*/React.createElement("div", {
     className: "legend-row"
-  }, /*#__PURE__*/React.createElement("b", null, "Rink 2 & 3"), " In-venue only, not broadcast"))), day.sessions.map((s, si) => /*#__PURE__*/React.createElement("div", {
-    className: "session-block",
-    key: si
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "session-title"
-  }, s.name, " ", /*#__PURE__*/React.createElement("span", {
-    className: "session-time"
-  }, s.time)), /*#__PURE__*/React.createElement("div", {
-    className: "session-rowhead"
-  }, /*#__PURE__*/React.createElement("span", null, "TIME"), /*#__PURE__*/React.createElement("span", null, "RINK 1 ", /*#__PURE__*/React.createElement("em", null, "WORLD FEED")), /*#__PURE__*/React.createElement("span", null, "RINK 2"), /*#__PURE__*/React.createElement("span", null, "RINK 3"), /*#__PURE__*/React.createElement("span", null, "RINK 4 ", /*#__PURE__*/React.createElement("em", null, "WORLD FEED"))), s.rows.map((r, ri) => /*#__PURE__*/React.createElement("div", {
-    className: "session-row",
-    key: ri
-  }, /*#__PURE__*/React.createElement("span", {
-    className: "session-row-time"
-  }, r.time), [0, 1, 2, 3].map(rinkIdx => /*#__PURE__*/React.createElement(MatchCell, {
-    key: rinkIdx,
-    m: r.matches[rinkIdx],
-    tv: rinkIdx === 0 || rinkIdx === 3,
-    code: rinkIdx === 0 ? r.tv1 : rinkIdx === 3 ? r.tv4 : null,
-    number: dayMatchNumbers[`d${dayId}-s${si}-r${ri}-k${rinkIdx + 1}`],
-    onClick: onJumpToMatch ? () => onJumpToMatch(dayId, si, ri, rinkIdx) : null
-  })))))));
+  }, /*#__PURE__*/React.createElement("b", null, "Rink 2 & 3"), " In-venue only, not broadcast"))), day.sessions.map((s, si) => {
+    const rowEls = s.rows.map((r, ri) => {
+      const cellEls = [0, 1, 2, 3].map(rinkIdx => {
+        const cellId = `d${dayId}-s${si}-r${ri}-k${rinkIdx + 1}`;
+        const m = r.matches[rinkIdx];
+        return /*#__PURE__*/React.createElement(MatchCell, {
+          key: rinkIdx,
+          m,
+          id: cellId,
+          scores,
+          tv: rinkIdx === 0 || rinkIdx === 3,
+          code: rinkIdx === 0 ? r.tv1 : rinkIdx === 3 ? r.tv4 : null,
+          number: dayMatchNumbers[cellId],
+          onClick: onJumpToMatch ? () => onJumpToMatch(dayId, si, ri, rinkIdx) : null,
+          editing: editingId === cellId,
+          onStartEdit: onSetTeams ? () => setEditingId(cellId) : null,
+          onCancelEdit: () => setEditingId(null),
+          onSaveTeams: (aCode, bCode) => {
+            if (onSetTeams && m) onSetTeams(cellId, m[0], aCode, bCode);
+            setEditingId(null);
+          },
+          onClearTeams: onClearTeams && m ? () => onClearTeams(cellId, m[0]) : null
+        });
+      });
+      return /*#__PURE__*/React.createElement("div", {
+        className: "session-row",
+        key: ri
+      }, /*#__PURE__*/React.createElement("span", {
+        className: "session-row-time"
+      }, r.time), cellEls);
+    });
+    return /*#__PURE__*/React.createElement("div", {
+      className: "session-block",
+      key: si
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "session-title"
+    }, s.name, " ", /*#__PURE__*/React.createElement("span", {
+      className: "session-time"
+    }, s.time)), /*#__PURE__*/React.createElement("div", {
+      className: "session-rowhead"
+    }, /*#__PURE__*/React.createElement("span", null, "TIME"), /*#__PURE__*/React.createElement("span", null, "RINK 1 ", /*#__PURE__*/React.createElement("em", null, "WORLD FEED")), /*#__PURE__*/React.createElement("span", null, "RINK 2"), /*#__PURE__*/React.createElement("span", null, "RINK 3"), /*#__PURE__*/React.createElement("span", null, "RINK 4 ", /*#__PURE__*/React.createElement("em", null, "WORLD FEED"))), rowEls);
+  }));
 }
 // Run-up blocks (preroll/midrunup) count DOWN toward the match start at
 // 0:00; run-down blocks (midrundown/endrundown) count UP from the match
@@ -3416,6 +3585,32 @@ function App() {
       redTeam: current.redTeam === side ? null : side
     }));
   };
+  // Fills in the real matchup for a placeholder schedule slot (a semi-final
+  // or medal-match row whose schedule tuple has no home team yet — see
+  // resolveMatchTeams). Stored as overrideA/overrideB on this match id's own
+  // score doc, so it rides the exact same updateMatch/Firestore/localStorage
+  // path as every other edit — no separate collection to keep in sync.
+  // Every reader that resolves a schedule tuple's teams goes through
+  // resolveMatchTeams, so the moment this is set the match starts showing up
+  // on the Gallery Wall, Standings, and Daily Log, and RosterPanel picks up
+  // the real athlete data automatically since it just looks up whatever
+  // nation code ends up in match.a/match.b.
+  const setMatchTeams = (id, disciplineCode, aCode, bCode) => {
+    updateMatch(id, disciplineCode, current => ({
+      ...current,
+      overrideA: aCode,
+      overrideB: bCode
+    }));
+  };
+  // Reverts a placeholder slot back to "not yet drawn" — used by the
+  // Schedule tab's edit picker if a producer picked the wrong nations.
+  const clearMatchTeams = (id, disciplineCode) => {
+    updateMatch(id, disciplineCode, current => ({
+      ...current,
+      overrideA: null,
+      overrideB: null
+    }));
+  };
   const toggleExpand = id => {
     setExpandedIds(prev => {
       const next = {
@@ -3456,7 +3651,7 @@ function App() {
   // focusOverride — clicking a row in the always-visible "rest of session"
   // list below a tile. Everything else in the session stays listed there,
   // not just what comes after the focused match, so focus can move either way.
-  const rinkLists = [0, 1, 2, 3].map(rinkIdx => buildRinkSessionMatches(dayId, si, rinkIdx).map(desc => ({
+  const rinkLists = [0, 1, 2, 3].map(rinkIdx => buildRinkSessionMatches(dayId, si, rinkIdx, scores).map(desc => ({
     ...desc,
     matchNumber: dayMatchNumbers[desc.id],
     ...coerceScoreState(scores[desc.id], desc.disciplineCode)
@@ -3495,13 +3690,13 @@ function App() {
       out.push({
         ri: rIdx,
         time: row.time,
-        m1: row.matches[0],
-        m4: row.matches[3],
+        m1: resolveMatchTeams(row.matches[0], `d${dayId}-s${si}-r${rIdx}-k1`, scores),
+        m4: resolveMatchTeams(row.matches[3], `d${dayId}-s${si}-r${rIdx}-k4`, scores),
         matchNumber: dayMatchNumbers[`d${dayId}-s${si}-r${rIdx}-k1`] || dayMatchNumbers[`d${dayId}-s${si}-r${rIdx}-k4`] || dayMatchNumbers[`d${dayId}-s${si}-r${rIdx}-k2`] || dayMatchNumbers[`d${dayId}-s${si}-r${rIdx}-k3`]
       });
     });
     return out;
-  }, [day, dayId, si, dayMatchNumbers]);
+  }, [day, dayId, si, dayMatchNumbers, scores]);
   // Which round sub-tab is highlighted as "current" — read off rink 1's
   // (falling back to rink 4's) actual on-screen match rather than tracked
   // as its own separate piece of state, so the strip always agrees with
@@ -3607,11 +3802,11 @@ function App() {
       className: "wall-row-tab-matches"
     }, /*#__PURE__*/React.createElement("span", {
       className: "wall-row-tab-match"
-    }, row.m1 ? `${row.m1[1]} v ${row.m1[2]}` : '—'), /*#__PURE__*/React.createElement("span", {
+    }, row.m1 ? row.m1.home ? `${row.m1.home} v ${row.m1.away}` : row.m1.placeholderLabel : '—'), /*#__PURE__*/React.createElement("span", {
       className: "wall-row-tab-sep"
     }, "│"), /*#__PURE__*/React.createElement("span", {
       className: "wall-row-tab-match"
-    }, row.m4 ? `${row.m4[1]} v ${row.m4[2]}` : '—')));
+    }, row.m4 ? row.m4.home ? `${row.m4.home} v ${row.m4.away}` : row.m4.placeholderLabel : '—')));
   })), tvSlots.length === 0 && /*#__PURE__*/React.createElement("div", {
     className: "day-note"
   }, "No matches with confirmed teams in this session yet (likely a semi-final or medal-match placeholder) — nothing to track live here."), /*#__PURE__*/React.createElement("div", {
@@ -3635,7 +3830,10 @@ function App() {
     onLogEdit: editLogEntry
   })))), view === 'schedule' && /*#__PURE__*/React.createElement(Schedule, {
     dayId: dayId,
-    onJumpToMatch: jumpToMatch
+    onJumpToMatch: jumpToMatch,
+    scores: scores,
+    onSetTeams: setMatchTeams,
+    onClearTeams: clearMatchTeams
   }), view === 'rundown' && /*#__PURE__*/React.createElement(RundownTimer, null), view === 'dailylog' && /*#__PURE__*/React.createElement(DailyLog, {
     dayId: dayId,
     day: day,
