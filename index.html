@@ -254,6 +254,7 @@
   @media (max-width: 720px) { .detail-panels { grid-template-columns: 1fr; } }
   .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px; }
   .panel-title { font-family: 'Oswald', sans-serif; font-size: 14px; text-transform: uppercase; letter-spacing: 0.03em; margin-bottom: 12px; }
+  .log-filter-note { font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.06em; color: var(--text-faint); text-transform: none; margin-left: 8px; }
   .panel-note { display: flex; align-items: flex-start; gap: 6px; font-size: 11px; color: var(--text-faint); margin-top: 10px; line-height: 1.5; }
   .panel-note-warn { color: var(--standby); }
 
@@ -1912,6 +1913,19 @@ function currentEndLabel(sets) {
 function isSet2Label(label) {
   return typeof label === 'string' && /set\s*2/i.test(label);
 }
+// Classifies a (possibly hand-edited) Set ID string into a set index (0/1/2)
+// the same way isSet2Label does for its narrower purpose — used to filter
+// the Logsheet down to just the active set's entries in Log mode. Returns
+// null for blank or unrecognized text (a hand-typed label that doesn't
+// match any of the three patterns), which deliberately excludes those
+// entries from every per-set filtered view rather than guessing.
+function entrySetIndex(label) {
+  if (typeof label !== 'string') return null;
+  if (/tie ?break/i.test(label)) return 2;
+  if (/set\s*2/i.test(label)) return 1;
+  if (/set\s*1/i.test(label)) return 0;
+  return null;
+}
 const NAV = [{
   id: 'wall',
   label: 'Gallery Wall'
@@ -2307,7 +2321,9 @@ function LogSheet({
   match,
   onAdd,
   onDelete,
-  onEdit
+  onEdit,
+  filterSetIdx,
+  filterNote
 }) {
   const defaultSetLabel = useMemo(() => currentSetLabel(match.sets), [match.sets]);
   const defaultEndLabel = useMemo(() => currentEndLabel(match.sets), [match.sets]);
@@ -2321,7 +2337,11 @@ function LogSheet({
   const [rating, setRating] = useState(0);
   const [bestOfSet, setBestOfSet] = useState(false);
   const [finalBowl, setFinalBowl] = useState(false);
-  const entries = (match.log || []).slice().sort((a, b) => a.createdAt - b.createdAt);
+  // filterSetIdx (0/1/2) is only passed by LogModeCard, to show just the
+  // set currently active on the score tabs — the ordinary MatchCard
+  // doesn't pass it, so its Logsheet is untouched and still shows every
+  // entry regardless of which set it was logged against.
+  const entries = (match.log || []).filter(e => filterSetIdx === undefined || filterSetIdx === null || entrySetIndex(e.setLabel) === filterSetIdx).slice().sort((a, b) => a.createdAt - b.createdAt);
   // Only track the live default while adding a fresh entry — once a
   // producer is editing an existing row, or has hand-typed a Set ID (or
   // End ID) for the entry in progress, further score activity shouldn't
@@ -2378,7 +2398,9 @@ function LogSheet({
     className: "panel panel-full"
   }, /*#__PURE__*/React.createElement("div", {
     className: "panel-title"
-  }, "Logsheet"), /*#__PURE__*/React.createElement("div", {
+  }, "Logsheet", filterNote && /*#__PURE__*/React.createElement("span", {
+    className: "log-filter-note"
+  }, filterNote)), /*#__PURE__*/React.createElement("div", {
     className: "log-entry-form"
   }, /*#__PURE__*/React.createElement("div", {
     className: "log-input-row"
@@ -2593,7 +2615,9 @@ function LogModeCard({
     match: match,
     onAdd: onLogAdd,
     onDelete: onLogDelete,
-    onEdit: onLogEdit
+    onEdit: onLogEdit,
+    filterSetIdx: activeSetIdx,
+    filterNote: (activeSetIdx === 2 ? 'TIEBREAK' : `SET ${activeSetIdx + 1}`) + ' ONLY'
   })));
 }
 function Standings({
