@@ -333,7 +333,13 @@
   /* -- Ends grid scoresheet -- */
   .set-block { margin-top: 2px; }
   .set-block-label { font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.08em; color: var(--text-faint); margin-bottom: 4px; display: flex; justify-content: space-between; }
-  .ends-scroll { overflow-x: auto; padding-bottom: 2px; }
+  .ends-wrap { display: flex; gap: 6px; align-items: flex-start; }
+  .ends-labels { display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; }
+  .end-label-spacer { height: 13px; }
+  .end-row-label { height: 45px; display: flex; align-items: center; font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.04em; color: var(--text-faint); white-space: nowrap; }
+  .end-row-label-red { color: var(--team-red); }
+  .end-row-label-blue { color: var(--team-blue); }
+  .ends-scroll { overflow-x: auto; padding-bottom: 2px; flex: 1; min-width: 0; }
   .ends-scroll .ends-grid + .ends-grid { margin-top: 8px; }
   .ends-grid { display: grid; grid-auto-columns: 40px; grid-auto-flow: column; gap: 4px; align-items: center; width: max-content; }
   .ends-grid-labelcol { grid-auto-columns: 54px; }
@@ -1951,13 +1957,23 @@ function EndsGrid({
     }));
   };
   return /*#__PURE__*/React.createElement("div", {
+    className: "ends-wrap"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "ends-labels"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "end-label-spacer"
+  }), /*#__PURE__*/React.createElement("div", {
+    className: 'end-row-label' + (colourFor('a') ? ' end-row-label-' + colourFor('a') : '')
+  }, labelA || ''), /*#__PURE__*/React.createElement("div", {
+    className: 'end-row-label' + (colourFor('b') ? ' end-row-label-' + colourFor('b') : '')
+  }, labelB || '')), /*#__PURE__*/React.createElement("div", {
     className: "ends-scroll"
   }, /*#__PURE__*/React.createElement("div", {
     className: "ends-grid"
   }, ends.map((_, i) => /*#__PURE__*/React.createElement("div", {
     className: "end-head",
     key: i
-  }, i + 1))), row('a'), row('b'));
+  }, i + 1))), row('a'), row('b')));
 }
 // A single Gallery Wall tile: fully scorable and loggable without leaving
 // the front page. Every set's ends are always visible and horizontal
@@ -2023,6 +2039,8 @@ function MatchCard({
     ends: sets[idx].ends,
     disabled: match.final,
     redTeam: match.redTeam,
+    labelA: match.a,
+    labelB: match.b,
     onSetEnd: (endIdx, side, value) => onSetEnd(match.id, match.disciplineCode, idx, endIdx, side, value)
   }));
   // Red/blue is purely a display convenience for the producer (e.g. bowl
