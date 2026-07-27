@@ -274,11 +274,12 @@
   .log-input-tc { flex: 1.4; }
   .log-input-set { flex: 1; }
   .log-input-end { flex: 0.7; }
-  .log-rating-row { display: flex; gap: 4px; }
+  .log-rating-row { display: flex; gap: 4px; flex-shrink: 0; }
   .log-rating-btn { background: transparent; border: 1px solid var(--line); color: var(--text-faint); border-radius: 4px; width: 28px; height: 28px; font-size: 14px; }
   .log-rating-btn-active { color: var(--standby); border-color: var(--standby); }
-  .log-form-actions { display: flex; gap: 8px; }
-  .log-form-actions .ghost-btn { flex: 1; }
+  .log-form-actions { display: flex; gap: 8px; flex: 1; min-width: 140px; }
+  .log-form-actions .ghost-btn { flex: 1; margin-top: 0; }
+  .log-combined-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }
   .ghost-btn-muted { color: var(--text-faint); border-color: var(--line); }
   .log-list { display: flex; flex-direction: column; gap: 6px; max-height: 440px; overflow-y: auto; }
   .log-row { display: flex; align-items: flex-start; gap: 10px; font-size: 12px; color: var(--text-dim); padding: 6px 4px; border-bottom: 1px solid var(--line); }
@@ -405,8 +406,8 @@
   .log-mode-end { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--carpet-light); margin-top: 3px; }
 
   /* -- Logsheet v2 -- */
-  .tag-row { display: flex; gap: 6px; }
-  .tag-toggle { background: transparent; border: 1px solid var(--line); color: var(--text-faint); font-size: 11px; padding: 6px 10px; border-radius: 6px; flex: 1; }
+  .tag-row { display: flex; gap: 6px; flex-shrink: 0; }
+  .tag-toggle { background: transparent; border: 1px solid var(--line); color: var(--text-faint); font-size: 11px; padding: 6px 10px; border-radius: 6px; flex: 1; white-space: nowrap; }
   .tag-toggle-active { background: var(--standby); border-color: var(--standby); color: #1A1400; }
   .log-row-tags { display: flex; gap: 4px; flex-shrink: 0; }
   .log-tag-chip { font-family: 'IBM Plex Mono', monospace; font-size: 9px; letter-spacing: 0.05em; background: rgba(232,163,61,0.18); color: var(--standby); padding: 2px 6px; border-radius: 3px; }
@@ -2133,7 +2134,7 @@ function MatchCard({
     key: idx
   }, /*#__PURE__*/React.createElement("div", {
     className: "set-block-label"
-  }, /*#__PURE__*/React.createElement("span", null, idx === 2 ? 'Tiebreak' : `Set ${idx + 1} of 2`), /*#__PURE__*/React.createElement("span", {
+  }, /*#__PURE__*/React.createElement("span", {
     className: "set-total-badge"
   }, setTotals(sets[idx].ends).a, "–", setTotals(sets[idx].ends).b)), /*#__PURE__*/React.createElement(EndsGrid, {
     ends: sets[idx].ends,
@@ -2417,6 +2418,8 @@ function LogSheet({
       }
     }
   }), /*#__PURE__*/React.createElement("div", {
+    className: "log-combined-row"
+  }, /*#__PURE__*/React.createElement("div", {
     className: "log-rating-row"
   }, [1, 2, 3, 4, 5].map(n => /*#__PURE__*/React.createElement("button", {
     key: n,
@@ -2442,7 +2445,7 @@ function LogSheet({
     className: "ghost-btn ghost-btn-muted",
     type: "button",
     onClick: resetForm
-  }, "Cancel"))), /*#__PURE__*/React.createElement("div", {
+  }, "Cancel")))), /*#__PURE__*/React.createElement("div", {
     className: "log-list"
   }, entries.length === 0 ? /*#__PURE__*/React.createElement("div", {
     className: "roster-empty"
@@ -2537,7 +2540,7 @@ function LogModeCard({
     key: idx
   }, /*#__PURE__*/React.createElement("div", {
     className: "set-block-label"
-  }, /*#__PURE__*/React.createElement("span", null, idx === 2 ? 'Tiebreak' : `Set ${idx + 1} of 2`), /*#__PURE__*/React.createElement("span", {
+  }, /*#__PURE__*/React.createElement("span", {
     className: "set-total-badge"
   }, setTotals(sets[idx].ends).a, "–", setTotals(sets[idx].ends).b)), /*#__PURE__*/React.createElement(EndsGrid, {
     ends: sets[idx].ends,
