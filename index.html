@@ -187,6 +187,16 @@
 
   .day-note { background: rgba(232,163,61,0.1); border: 1px solid rgba(232,163,61,0.25); color: var(--standby); font-size: 12px; padding: 8px 12px; border-radius: 6px; margin-bottom: 16px; }
 
+  .clash-intro { color: var(--text-dim); font-size: 13px; margin-bottom: 18px; max-width: 720px; }
+  .clash-empty { background: rgba(18,122,62,0.1); border: 1px solid rgba(18,122,62,0.3); color: var(--text); font-size: 13px; padding: 14px 16px; border-radius: 8px; }
+  .clash-day { margin-bottom: 20px; }
+  .clash-day-title { font-family: 'Oswald', sans-serif; font-size: 14px; text-transform: uppercase; letter-spacing: 0.02em; color: var(--text); margin-bottom: 8px; }
+  .clash-row { display: grid; grid-template-columns: 90px 1fr auto; gap: 12px; align-items: center; background: var(--panel); border: 1px solid rgba(197,60,44,0.4); border-left: 3px solid var(--live); border-radius: 6px; padding: 10px 12px; margin-bottom: 8px; font-size: 12px; }
+  .clash-commentator { font-family: 'Oswald', sans-serif; font-size: 13px; text-transform: uppercase; letter-spacing: 0.02em; color: var(--live); }
+  .clash-detail { color: var(--text-dim); line-height: 1.5; }
+  .clash-detail b { color: var(--text); font-family: 'IBM Plex Mono', monospace; }
+  .clash-jump { background: var(--panel-raised); border: 1px solid var(--line); color: var(--text); font-size: 11px; padding: 6px 10px; border-radius: 6px; white-space: nowrap; }
+
   .session-block { margin-bottom: 24px; }
   .session-title { font-family: 'Oswald', sans-serif; font-size: 15px; text-transform: uppercase; letter-spacing: 0.02em; margin-bottom: 8px; }
   .session-time { color: var(--text-faint); font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 400; text-transform: none; letter-spacing: 0; margin-left: 8px; }
@@ -621,12 +631,19 @@ const DISCIPLINES = {
 };
 const COMMENTATORS = {
   P: 'Paul',
-  B: 'Barry',
+  B: 'Barrie',
   S: 'Sharyn',
   CH: 'Charlie',
   DJ: 'DJ',
-  DC: 'David C.'
+  DC: 'Corky',
+  SIAN: 'Sian'
 };
+// The three lead commentators who rotate between Rink 1 and Rink 4 — used by
+// the clash finder (buildCommentatorClashes) to flag a same-person Rink1→Rink4
+// or Rink4→Rink1 back-to-back assignment, which isn't physically possible to
+// cover live. Sharyn/DJ/Barrie/Sian are "expert" seats and never move rinks
+// solo in the rota as published, so they're deliberately excluded.
+const CLASH_WATCH_CODES = ['DC', 'CH', 'P'];
 // Athlete rosters, keyed by discipline code then nation code (nation codes
 // match NATIONS/SCHEDULE, e.g. JER not JEY, SIN not SGP, NFI not NFK — the
 // official entries list uses IOC-style codes for a few nations that differ
@@ -856,7 +873,8 @@ const DAYS = [{
   date: '02 AUG'
 }];
 
-// Real match schedule + commentator rota (as at 20/07/26). TV Rinks 1 & 4 only.
+// Real match schedule + commentator rota (as at 28/07/26, from the "all
+// rinks checked" commentator schedule CSV). TV Rinks 1 & 4 only.
 const SCHEDULE = [{
   "date": "23 JUL",
   "label": "Day 0",
@@ -931,11 +949,11 @@ const SCHEDULE = [{
       "time": "16:25",
       "tv1": "P&S",
       "matches": [["MS", "SCO", "PAK"], ["MS", "FIJ", "JAM"], ["WP", "NZL", "BOT"], ["WP", "CAN", "KEN"]],
-      "tv4": "DC&B"
+      "tv4": "CH&DJ"
     }, {
       "time": "17:50",
       "tv1": "DC&B",
-      "matches": [["MS", "ENG", "WAL"], ["MS", "MAS", "MLT"], ["MS", "CAN", "KEN"], ["MS", "IND", "FLK"]],
+      "matches": [["MS", "ENG", "WAL"], ["MS", "IND", "FLK"], ["MS", "CAN", "KEN"], ["MS", "MAS", "MLT"]],
       "tv4": "CH&DJ"
     }, {
       "time": "19:15",
@@ -1042,20 +1060,20 @@ const SCHEDULE = [{
       "time": "14:45",
       "tv1": "P&B",
       "matches": [["MS", "MAS", "KEN"], ["WP", "COK", "JER"], ["MS", "IND", "MLT"], ["MS", "NIR", "NFI"]],
-      "tv4": null
+      "tv4": "CH&DJ"
     }, {
       "time": "16:10",
       "tv1": "P&DJ",
-      "matches": [["WP", "NFI", "FLK"], null, ["WP", "NAM", "TGA"], ["WP", "MAS", "SCO"]],
+      "matches": [["WP", "NFI", "FLK"], ["MS", "SIN", "TGA"], ["WP", "NAM", "TGA"], ["WP", "MAS", "SCO"]],
       "tv4": "DC&S"
     }, {
       "time": "17:35",
       "tv1": "DC&S",
-      "matches": [["WP", "ENG", "IND"], ["MS", "SIN", "TGA"], ["WP", "RSA", "MLT"], ["MS", "CAN", "FLK"]],
+      "matches": [["WP", "ENG", "IND"], null, ["WP", "RSA", "MLT"], ["MS", "CAN", "FLK"]],
       "tv4": "CH&DJ"
     }, {
       "time": "19:00",
-      "tv1": "DC&DJ",
+      "tv1": "P&DJ",
       "matches": [["WP", "NIR", "ZAM"], ["WP", "GGY", "SIN"], ["WP", "NIU", "IOM"], ["MS", "RSA", "NZL"]],
       "tv4": "CH&S"
     }, {
@@ -1114,12 +1132,12 @@ const SCHEDULE = [{
     }, {
       "time": "19:00",
       "tv1": "CH&DJ",
-      "matches": [["PXP", "WAL", "ENG"], null, null, ["PXP", "SCO", "NZL"]],
-      "tv4": "P&B"
+      "matches": [["PXP", null, "SEMI FINAL 1"], null, null, ["PXP", null, "SEMI FINAL 2"]],
+      "tv4": "DC&S"
     }, {
       "time": "20:40",
       "tv1": "P&B",
-      "matches": [["MS", null, "SEMI FINAL 1"], ["MS", null, "SEMI FINAL 2"], ["WP", null, "SEMI FINAL 1"], ["WP", null, "SEMI FINAL 2"]],
+      "matches": [["MS", null, "SEMI FINAL 1"], ["MS", null, "Men's Singles Semi-Final Match 2"], ["WP", null, "Women's Pairs Semi-Final Match 1"], ["WP", null, "SEMI FINAL 2"]],
       "tv4": "DC&S"
     }]
   }]
@@ -1148,7 +1166,17 @@ const SCHEDULE = [{
     }, {
       "time": "13:00",
       "tv1": null,
-      "matches": [["—", null, "MEDAL CEREMONY"], null, null, null],
+      "matches": [["PXP", null, "MEDAL CEREMONY"], null, null, null],
+      "tv4": null
+    }, {
+      "time": "13:10",
+      "tv1": null,
+      "matches": [["WP", null, "MEDAL CEREMONY"], null, null, null],
+      "tv4": null
+    }, {
+      "time": "13:20",
+      "tv1": null,
+      "matches": [["MS", null, "MEDAL CEREMONY"], null, null, null],
       "tv4": null
     }]
   }, {
@@ -1158,7 +1186,7 @@ const SCHEDULE = [{
       "time": "15:00",
       "tv1": "DC&S",
       "matches": [["WS", "AUS", "CAN"], ["WS", "COK", "MLT"], ["WS", "GGY", "NIU"], ["MP", "WAL", "NIU"]],
-      "tv4": "P&S"
+      "tv4": "CH&B"
     }, {
       "time": "16:25",
       "tv1": "P&B",
@@ -1272,8 +1300,8 @@ const SCHEDULE = [{
     "time": "15:00–21:55",
     "rows": [{
       "time": "15:00",
-      "tv1": "DC&S",
-      "matches": [["MP", "RSA", "IOM"], ["MP", "IND", "BOT"], ["MP", "NAM", "FLK"], ["WS", "NIR", "NIU"]],
+      "tv1": "CH&S",
+      "matches": [["WS", "RSA", "IOM"], ["MP", "IND", "BOT"], ["MP", "NAM", "FLK"], ["WS", "NIR", "NIU"]],
       "tv4": "P&SIAN"
     }, {
       "time": "16:25",
@@ -1284,7 +1312,7 @@ const SCHEDULE = [{
       "time": "17:50",
       "tv1": "DJ&B",
       "matches": [["WS", "NFI", "FIJ"], ["MP", "RSA", "IOM"], ["WS", "KEN", "TGA"], ["WS", "SCO", "NAM"]],
-      "tv4": "DC&B"
+      "tv4": "P&S"
     }, {
       "time": "19:15",
       "tv1": "DC&B",
@@ -1294,7 +1322,7 @@ const SCHEDULE = [{
       "time": "20:40",
       "tv1": "DJ&B",
       "matches": [["MP", "FIJ", "PAK"], ["PWP", "ENG", "MAS"], ["PWP", "AUS", "CAN"], ["PWP", "SCO", "NZL"]],
-      "tv4": null
+      "tv4": "CH&S"
     }]
   }]
 }, {
@@ -1337,7 +1365,7 @@ const SCHEDULE = [{
       "time": "16:25",
       "tv1": "DC&S",
       "matches": [["WS", "MAS", "RSA"], ["WS", "FIJ", "NAM"], ["MP", "RSA", "KEN"], ["MP", "SCO", "CAN"]],
-      "tv4": "P&S"
+      "tv4": "P&DJ"
     }, {
       "time": "17:50",
       "tv1": "P&S",
@@ -1404,12 +1432,12 @@ const SCHEDULE = [{
     }, {
       "time": "19:15",
       "tv1": "P&B",
-      "matches": [["MP", null, "SEMI FINAL 1"], ["MP", null, "SEMI FINAL 2"], ["PMP", null, "SEMI FINAL 2"], ["PMP", null, "SEMI FINAL 1"]],
+      "matches": [["MP", null, "SEMI FINAL 1"], ["MP", null, "Men's Pairs Semi-Final Match 2"], ["PMP", null, "Para Men's Pairs B6-B8 Semi-Final Match 1"], ["PMP", null, "SEMI FINAL 2"]],
       "tv4": "DC&S"
     }, {
       "time": "20:40",
       "tv1": "DC&S",
-      "matches": [["WS", null, "SEMI FINAL 1"], ["WS", null, "SEMI FINAL 2"], ["PWP", null, "SEMI FINAL 2"], ["PWP", null, "SEMI FINAL 1"]],
+      "matches": [["WS", null, "SEMI FINAL 1"], ["WS", null, "Women's Singles Semi-Final Match 2"], ["PWP", null, "Para Women's Pairs B6-B8 Semi-Final Match 1"], ["PWP", null, "SEMI FINAL 2"]],
       "tv4": "CH&DJ"
     }]
   }]
@@ -1443,7 +1471,22 @@ const SCHEDULE = [{
     }, {
       "time": "14:40",
       "tv1": null,
-      "matches": [["—", null, "MEDAL CEREMONIES"], null, null, null],
+      "matches": [["MP", null, "MEDAL CEREMONY"], null, null, null],
+      "tv4": null
+    }, {
+      "time": "14:48",
+      "tv1": null,
+      "matches": [["PWP", null, "MEDAL CEREMONY"], null, null, null],
+      "tv4": null
+    }, {
+      "time": "14:56",
+      "tv1": null,
+      "matches": [["PMP", null, "MEDAL CEREMONY"], null, null, null],
+      "tv4": null
+    }, {
+      "time": "15:04",
+      "tv1": null,
+      "matches": [["WS", null, "MEDAL CEREMONY"], null, null, null],
       "tv4": null
     }]
   }]
@@ -1591,6 +1634,80 @@ function buildRinkSessionMatches(dayId, si, rinkIdx, scores) {
 function commentatorLabel(code) {
   if (!code) return '';
   return code.split('&').map(c => COMMENTATORS[c] || c).join(' + ');
+}
+// A short label for one side of a match cell — team tri-codes when known,
+// otherwise whatever placeholder text is already sitting in the schedule
+// data (e.g. "GOLD MEDAL MATCH"). Used by the clash finder, which has no
+// need for the fuller MatchCell/MatchCard rendering.
+function clashMatchLabel(m) {
+  const resolved = resolveMatchTeams(m, null, null);
+  if (!resolved) return null;
+  if (resolved.home && resolved.away) return `${resolved.home} v ${resolved.away}`;
+  return resolved.placeholderLabel || null;
+}
+// Finds every case where one of the three commentators who physically move
+// between Rink 1 and Rink 4 (see CLASH_WATCH_CODES) is booked as lead on one
+// of those rinks and then, in the very next time slot of the same session,
+// booked as lead on the other one — Rink 1 and Rink 4 sit at opposite ends
+// of the hall, so back-to-back coverage across both isn't physically
+// possible. Only checks consecutive rows within the same session (the AM/PM
+// break is long enough that a same-session boundary crossing isn't a real
+// clash). Returns a flat list, one entry per clash, in schedule order.
+function buildCommentatorClashes() {
+  const leadOf = code => code ? code.split('&')[0] : null;
+  const clashes = [];
+  SCHEDULE.forEach((day, dayId) => {
+    day.sessions.forEach((session, si) => {
+      for (let ri = 0; ri < session.rows.length - 1; ri++) {
+        const row = session.rows[ri];
+        const next = session.rows[ri + 1];
+        [{
+          fromCode: row.tv1,
+          fromRink: 1,
+          fromIdx: 0,
+          toCode: next.tv4,
+          toRink: 4,
+          toIdx: 3
+        }, {
+          fromCode: row.tv4,
+          fromRink: 4,
+          fromIdx: 3,
+          toCode: next.tv1,
+          toRink: 1,
+          toIdx: 0
+        }].forEach(({
+          fromCode,
+          fromRink,
+          fromIdx,
+          toCode,
+          toRink,
+          toIdx
+        }) => {
+          const lead = leadOf(fromCode);
+          if (!lead || lead !== leadOf(toCode) || !CLASH_WATCH_CODES.includes(lead)) return;
+          clashes.push({
+            dayId,
+            dayLabel: day.label,
+            dayDate: day.date,
+            si,
+            ri,
+            sessionName: session.name,
+            code: lead,
+            name: COMMENTATORS[lead] || lead,
+            fromTime: row.time,
+            toTime: next.time,
+            fromRink,
+            toRink,
+            fromMatch: clashMatchLabel(row.matches[fromIdx]),
+            toMatch: clashMatchLabel(next.matches[toIdx]),
+            toRi: ri + 1,
+            toRinkIdx: toRink - 1
+          });
+        });
+      }
+    });
+  });
+  return clashes;
 }
 // Every match ROUND on a day, numbered 1..N in schedule order — one number
 // per time-slot (session, then row), shared by every rink playing in that
@@ -1932,6 +2049,9 @@ const NAV = [{
 }, {
   id: 'schedule',
   label: 'Schedule'
+}, {
+  id: 'clashes',
+  label: 'Clash Finder'
 }, {
   id: 'rundown',
   label: 'Rundown'
@@ -2907,7 +3027,7 @@ function Schedule({
     key: k
   }, /*#__PURE__*/React.createElement("b", null, k), " ", v)), /*#__PURE__*/React.createElement("div", {
     className: "legend-row legend-muted"
-  }, "Codes combine with & (e.g. P&B = Paul and Barry). A few later sessions use a code (\"SIAN\") not in the original legend — worth confirming with the production team.")), /*#__PURE__*/React.createElement("div", {
+  }, "Codes combine with & (e.g. P&B = Paul and Barrie).")), /*#__PURE__*/React.createElement("div", {
     className: "legend-col"
   }, /*#__PURE__*/React.createElement("div", {
     className: "legend-title"
@@ -2964,6 +3084,59 @@ function Schedule({
       className: "session-rowhead"
     }, /*#__PURE__*/React.createElement("span", null, "TIME"), /*#__PURE__*/React.createElement("span", null, "RINK 1 ", /*#__PURE__*/React.createElement("em", null, "WORLD FEED")), /*#__PURE__*/React.createElement("span", null, "RINK 2"), /*#__PURE__*/React.createElement("span", null, "RINK 3"), /*#__PURE__*/React.createElement("span", null, "RINK 4 ", /*#__PURE__*/React.createElement("em", null, "WORLD FEED"))), rowEls);
   }));
+}
+// Lists every commentator clash across the whole event (not just one day —
+// unlike Schedule, this view isn't scoped to dayId since a producer needs to
+// see the full rota at a glance to fix the roster). Recomputed with useMemo
+// off SCHEDULE, which is static, so this only ever runs once per mount.
+function ClashFinder({
+  onJumpToMatch
+}) {
+  const clashes = useMemo(() => buildCommentatorClashes(), []);
+  const byDay = useMemo(() => {
+    const map = new Map();
+    clashes.forEach(c => {
+      if (!map.has(c.dayId)) map.set(c.dayId, []);
+      map.get(c.dayId).push(c);
+    });
+    return [...map.entries()].sort((a, b) => a[0] - b[0]);
+  }, [clashes]);
+  const header = /*#__PURE__*/React.createElement("div", {
+    className: "view-header sched-header"
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    className: "eyebrow"
+  }, "SEC CENTRE HALL 3"), /*#__PURE__*/React.createElement("h2", null, "Clash Finder")));
+  const intro = /*#__PURE__*/React.createElement("div", {
+    className: "clash-intro"
+  }, "Flags David Corkill, Charlie Brougham and Paul Mitchell whenever they're booked as lead on Rink 1 and then, in the very next slot of the same session, booked as lead on Rink 4 (or vice versa) — the two rinks sit at opposite ends of the hall, so there's no way to cover both live. Sharyn, DJ, Barrie and Sian aren't checked here since they never carry a rink solo in the published rota.");
+  const body = clashes.length === 0 ? /*#__PURE__*/React.createElement("div", {
+    className: "clash-empty"
+  }, "No clashes found — the rota is clean.") : byDay.map(([dayId, dayClashes]) => {
+    const rowEls = dayClashes.map((c, i) => {
+      const detail = /*#__PURE__*/React.createElement("div", {
+        className: "clash-detail"
+      }, c.sessionName, ": ", /*#__PURE__*/React.createElement("b", null, "Rink ", c.fromRink), " @ ", c.fromTime, c.fromMatch ? ` (${c.fromMatch})` : '', " → ", /*#__PURE__*/React.createElement("b", null, "Rink ", c.toRink), " @ ", c.toTime, c.toMatch ? ` (${c.toMatch})` : '');
+      const jumpBtn = onJumpToMatch ? /*#__PURE__*/React.createElement("button", {
+        className: "clash-jump",
+        onClick: () => onJumpToMatch(c.dayId, c.si, c.toRi, c.toRinkIdx)
+      }, "Jump to clash") : null;
+      return /*#__PURE__*/React.createElement("div", {
+        className: "clash-row",
+        key: i
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "clash-commentator"
+      }, c.name), detail, jumpBtn);
+    });
+    return /*#__PURE__*/React.createElement("div", {
+      className: "clash-day",
+      key: dayId
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "clash-day-title"
+    }, dayClashes[0].dayLabel, " · ", dayClashes[0].dayDate), rowEls);
+  });
+  return /*#__PURE__*/React.createElement("div", {
+    className: "view"
+  }, header, intro, body);
 }
 // Run-up blocks (preroll/midrunup) count DOWN toward the match start at
 // 0:00; run-down blocks (midrundown/endrundown) count UP from the match
@@ -3724,6 +3897,8 @@ function App() {
     scores: scores,
     onSetTeams: setMatchTeams,
     onClearTeams: clearMatchTeams
+  }), view === 'clashes' && /*#__PURE__*/React.createElement(ClashFinder, {
+    onJumpToMatch: jumpToMatch
   }), view === 'rundown' && /*#__PURE__*/React.createElement(RundownTimer, null), view === 'dailylog' && /*#__PURE__*/React.createElement(DailyLog, {
     dayId: dayId,
     day: day,
