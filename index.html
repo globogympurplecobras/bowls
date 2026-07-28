@@ -197,6 +197,35 @@
   .clash-detail b { color: var(--text); font-family: 'IBM Plex Mono', monospace; }
   .clash-jump { background: var(--panel-raised); border: 1px solid var(--line); color: var(--text); font-size: 11px; padding: 6px 10px; border-radius: 6px; white-space: nowrap; }
 
+  .clash-view-toggle { display: inline-flex; gap: 4px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 3px; margin-bottom: 16px; }
+  .clash-view-toggle button { background: transparent; border: none; color: var(--text-dim); font-family: 'Oswald', sans-serif; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; padding: 6px 12px; border-radius: 6px; cursor: pointer; }
+  .clash-view-toggle button.active { background: var(--panel-raised); color: var(--text); }
+
+  .clash-grid-day { margin-bottom: 22px; }
+  .clash-grid-count { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--live); margin-left: 8px; text-transform: none; letter-spacing: 0.04em; }
+  .clash-grid-clean { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--text-faint); margin-left: 8px; text-transform: none; letter-spacing: 0.04em; }
+  .clash-grid-wrap { overflow-x: auto; padding-bottom: 6px; }
+  .clash-grid { display: inline-grid; grid-auto-rows: auto; gap: 3px; }
+  .clash-grid-head, .clash-grid-cell { min-width: 58px; border-radius: 6px; padding: 4px 3px; text-align: center; }
+  .clash-grid-label-cell { display: flex; align-items: center; padding-right: 8px; font-family: 'Oswald', sans-serif; font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-faint); }
+  .clash-grid-head { background: transparent; }
+  .clash-grid-head-time { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--text-dim); }
+  .clash-grid-head-session { font-family: 'IBM Plex Mono', monospace; font-size: 8px; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.04em; margin-top: 1px; }
+  .clash-grid-session-start { border-left: 2px solid var(--line); padding-left: 5px; margin-left: 1px; }
+  .clash-grid-cell { background: var(--panel); border: 1px solid var(--line); font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600; cursor: pointer; min-height: 30px; display: flex; align-items: center; justify-content: center; }
+  .clash-grid-cell-empty { color: var(--text-faint); font-weight: 400; cursor: default; }
+  .clash-grid-cell-hot { border-color: var(--live); background: rgba(197,60,44,0.22); box-shadow: 0 0 0 1px var(--live) inset; color: #fff; }
+  .cc-P { color: #7CC9F0; background: rgba(58,160,214,0.16); }
+  .cc-DC { color: #6FCB9F; background: rgba(18,122,62,0.16); }
+  .cc-CH { color: #D9A6FF; background: rgba(150,90,214,0.16); }
+  .cc-S { color: #F0C860; background: rgba(232,163,61,0.16); }
+  .cc-DJ { color: #6FE0D6; background: rgba(52,177,166,0.16); }
+  .cc-B { color: #F294B6; background: rgba(214,90,140,0.16); }
+  .cc-SIAN { color: #B8C2CC; background: rgba(140,150,160,0.16); }
+  .clash-grid-legend { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 18px; font-size: 11px; }
+  .clash-grid-legend-item { display: inline-flex; align-items: center; gap: 5px; color: var(--text-dim); }
+  .clash-grid-legend-chip { width: 20px; height: 20px; border-radius: 5px; display: inline-flex; align-items: center; justify-content: center; font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 600; }
+
   .session-block { margin-bottom: 24px; }
   .session-title { font-family: 'Oswald', sans-serif; font-size: 15px; text-transform: uppercase; letter-spacing: 0.02em; margin-bottom: 8px; }
   .session-time { color: var(--text-faint); font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 400; text-transform: none; letter-spacing: 0; margin-left: 8px; }
@@ -243,8 +272,11 @@
   .wall-row-tabs { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; margin-bottom: 4px; }
   .wall-row-tab { flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 3px; background: var(--panel); border: 1px solid var(--line); color: var(--text-faint); padding: 6px 12px; border-radius: 6px; white-space: nowrap; }
   .wall-row-tab-active { background: var(--carpet); border-color: var(--carpet-light); color: var(--text); }
-  .wall-row-tab-head { font-family: 'IBM Plex Mono', monospace; font-size: 9px; letter-spacing: 0.08em; color: var(--carpet-light); }
-  .wall-row-tab-active .wall-row-tab-head { color: var(--text); }
+  .wall-row-tab-head { display: flex; align-items: baseline; gap: 6px; }
+  .wall-row-tab-num { font-family: 'IBM Plex Mono', monospace; font-size: 13px; font-weight: 700; letter-spacing: 0.02em; color: var(--carpet-light); }
+  .wall-row-tab-active .wall-row-tab-num { color: var(--text); }
+  .wall-row-tab-time { font-family: 'IBM Plex Mono', monospace; font-size: 13px; font-weight: 700; letter-spacing: 0.02em; color: var(--carpet-light); }
+  .wall-row-tab-active .wall-row-tab-time { color: var(--text); }
   .wall-row-tab-matches { display: flex; align-items: center; gap: 8px; font-family: 'Oswald', sans-serif; font-size: 13px; color: var(--text-dim); }
   .wall-row-tab-active .wall-row-tab-matches { color: var(--text); }
   .wall-row-tab-sep { color: var(--text-faint); font-size: 11px; }
@@ -414,7 +446,7 @@
   .log-mode-card .panel { flex: 1; display: flex; flex-direction: column; min-height: 0; padding: 0; border: none; background: transparent; }
   .log-mode-card .log-list { flex: 1; min-height: 0; max-height: none; }
   .log-mode-score { font-family: 'Oswald', sans-serif; font-size: 17px; color: var(--text); margin-top: 8px; }
-  .log-mode-end { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--carpet-light); margin-top: 3px; }
+  .log-mode-end { font-family: 'IBM Plex Mono', monospace; font-size: 20px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--carpet-light); margin-top: 5px; }
 
   /* -- Logsheet v2 -- */
   .tag-row { display: flex; gap: 6px; flex-shrink: 0; }
@@ -1645,6 +1677,14 @@ function clashMatchLabel(m) {
   if (resolved.home && resolved.away) return `${resolved.home} v ${resolved.away}`;
   return resolved.placeholderLabel || null;
 }
+// The lead half of a "LEAD&EXPERT" commentator code — e.g. "P&B" -> "P",
+// "DC" -> "DC" (single-commentator rows have no expert). Shared between the
+// clash finder's list and grid builders so both agree on who's "leading" a
+// rink for clash purposes; the expert half never matters here since experts
+// don't move between rinks.
+function leadCode(code) {
+  return code ? code.split('&')[0] : null;
+}
 // Finds every case where one of the three commentators who physically move
 // between Rink 1 and Rink 4 (see CLASH_WATCH_CODES) is booked as lead on one
 // of those rinks and then, in the very next time slot of the same session,
@@ -1654,7 +1694,6 @@ function clashMatchLabel(m) {
 // break is long enough that a same-session boundary crossing isn't a real
 // clash). Returns a flat list, one entry per clash, in schedule order.
 function buildCommentatorClashes() {
-  const leadOf = code => code ? code.split('&')[0] : null;
   const clashes = [];
   SCHEDULE.forEach((day, dayId) => {
     day.sessions.forEach((session, si) => {
@@ -1683,8 +1722,8 @@ function buildCommentatorClashes() {
           toRink,
           toIdx
         }) => {
-          const lead = leadOf(fromCode);
-          if (!lead || lead !== leadOf(toCode) || !CLASH_WATCH_CODES.includes(lead)) return;
+          const lead = leadCode(fromCode);
+          if (!lead || lead !== leadCode(toCode) || !CLASH_WATCH_CODES.includes(lead)) return;
           clashes.push({
             dayId,
             dayLabel: day.label,
@@ -1708,6 +1747,39 @@ function buildCommentatorClashes() {
     });
   });
   return clashes;
+}
+// Flattens one day into a Rink 1 / Rink 4 x time-slot grid for the clash
+// finder's visual view — every row across every session, in order, each
+// carrying just the lead code on each TV rink (or null). `allClashes` is the
+// output of buildCommentatorClashes(), passed in so it's computed once per
+// render rather than once per day. Each column also carries whichever clash
+// entries touch its Rink 1 / Rink 4 cell (as either the origin or the
+// destination of the clash) so the grid can highlight both ends of the pair.
+function buildDayClashGrid(dayId, allClashes) {
+  const day = SCHEDULE[dayId];
+  if (!day) return null;
+  const dayClashes = allClashes.filter(c => c.dayId === dayId);
+  const clashesAt = (si, ri, rink) => dayClashes.filter(c => c.si === si && (c.ri === ri && c.fromRink === rink || c.toRi === ri && c.toRink === rink));
+  const columns = [];
+  day.sessions.forEach((session, si) => {
+    session.rows.forEach((row, ri) => {
+      columns.push({
+        si,
+        ri,
+        time: row.time,
+        sessionName: session.name,
+        isSessionStart: ri === 0,
+        rink1Code: leadCode(row.tv1),
+        rink4Code: leadCode(row.tv4),
+        rink1Clashes: clashesAt(si, ri, 1),
+        rink4Clashes: clashesAt(si, ri, 4)
+      });
+    });
+  });
+  return {
+    day,
+    columns
+  };
 }
 // Every match ROUND on a day, numbered 1..N in schedule order — one number
 // per time-slot (session, then row), shared by every rink playing in that
@@ -2647,7 +2719,7 @@ function LogModeCard({
   const s1 = setTotals(sets[0] && sets[0].ends);
   const s2 = setTotals(sets[1] && sets[1].ends);
   const tbTotals = setTotals(sets[2] && sets[2].ends);
-  const scoreLine = setLabel === 'Set 1' ? `SET 1 · ${s1.a}–${s1.b}` : setLabel === 'Set 2' ? `SET 1 ${s1.a}–${s1.b} · SET 2 ${s2.a}–${s2.b}` : `SET 1 ${s1.a}–${s1.b} · SET 2 ${s2.a}–${s2.b} · TB ${tbTotals.a}–${tbTotals.b}`;
+  const scoreLine = setLabel === 'Set 1' ? `${s1.a}–${s1.b}` : setLabel === 'Set 2' ? `${s1.a}–${s1.b} · ${s2.a}–${s2.b}` : `${s1.a}–${s1.b} · ${s2.a}–${s2.b} · TB ${tbTotals.a}–${tbTotals.b}`;
   const endLine = match.final ? 'FINAL' : `${setLabel.toUpperCase()} · END ${endLabel}`;
   const autoSetIdx = (() => {
     const label = currentSetLabel(sets);
@@ -3089,9 +3161,95 @@ function Schedule({
 // unlike Schedule, this view isn't scoped to dayId since a producer needs to
 // see the full rota at a glance to fix the roster). Recomputed with useMemo
 // off SCHEDULE, which is static, so this only ever runs once per mount.
+// A single cell in the clash grid — a lead's code on one rink at one time
+// slot, colour-coded per commentator (see .cc-* classes), highlighted red
+// when this cell is one end of a clash. Clickable (jumps to that match on
+// the Gallery Wall) whenever a lead is actually assigned; empty cells (no
+// commentator that slot) render as a plain dash and aren't clickable.
+function ClashGridCell({
+  code,
+  hot,
+  onClick,
+  title
+}) {
+  if (!code) {
+    return /*#__PURE__*/React.createElement("div", {
+      className: "clash-grid-cell clash-grid-cell-empty"
+    }, "–");
+  }
+  return /*#__PURE__*/React.createElement("div", {
+    className: "clash-grid-cell " + (hot ? "clash-grid-cell-hot" : "cc-" + code),
+    onClick,
+    title
+  }, code);
+}
+// One day's Rink 1 / Rink 4 x time-slot grid, built off buildDayClashGrid.
+function ClashGridDay({
+  dayId,
+  allClashes,
+  onJumpToMatch
+}) {
+  const grid = useMemo(() => buildDayClashGrid(dayId, allClashes), [dayId, allClashes]);
+  if (!grid || grid.columns.length === 0) return null;
+  const clashCount = allClashes.filter(c => c.dayId === dayId).length;
+  const cellTitle = (col, rink, matchClashes) => {
+    const base = `${col.sessionName} · ${col.time} · Rink ${rink}`;
+    if (!matchClashes || matchClashes.length === 0) return base;
+    return base + ' — CLASH: ' + matchClashes.map(c => `${c.name} also on Rink ${rink === c.fromRink ? c.toRink : c.fromRink} at ${rink === c.fromRink ? c.toTime : c.fromTime}`).join('; ');
+  };
+  const headCells = grid.columns.map((col, i) => /*#__PURE__*/React.createElement("div", {
+    key: i,
+    className: "clash-grid-head" + (col.isSessionStart ? " clash-grid-session-start" : "")
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "clash-grid-head-time"
+  }, col.time), col.isSessionStart && /*#__PURE__*/React.createElement("div", {
+    className: "clash-grid-head-session"
+  }, col.sessionName)));
+  const rink1Cells = grid.columns.map((col, i) => /*#__PURE__*/React.createElement("div", {
+    key: i,
+    className: col.isSessionStart ? "clash-grid-session-start" : ""
+  }, /*#__PURE__*/React.createElement(ClashGridCell, {
+    code: col.rink1Code,
+    hot: col.rink1Clashes.length > 0,
+    title: cellTitle(col, 1, col.rink1Clashes),
+    onClick: col.rink1Code && onJumpToMatch ? () => onJumpToMatch(dayId, col.si, col.ri, 0) : null
+  })));
+  const rink4Cells = grid.columns.map((col, i) => /*#__PURE__*/React.createElement("div", {
+    key: i,
+    className: col.isSessionStart ? "clash-grid-session-start" : ""
+  }, /*#__PURE__*/React.createElement(ClashGridCell, {
+    code: col.rink4Code,
+    hot: col.rink4Clashes.length > 0,
+    title: cellTitle(col, 4, col.rink4Clashes),
+    onClick: col.rink4Code && onJumpToMatch ? () => onJumpToMatch(dayId, col.si, col.ri, 3) : null
+  })));
+  return /*#__PURE__*/React.createElement("div", {
+    className: "clash-grid-day"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "clash-day-title"
+  }, grid.day.label, " · ", grid.day.date, clashCount > 0 ? /*#__PURE__*/React.createElement("span", {
+    className: "clash-grid-count"
+  }, clashCount, " clash", clashCount === 1 ? '' : 'es') : /*#__PURE__*/React.createElement("span", {
+    className: "clash-grid-clean"
+  }, "clean")), /*#__PURE__*/React.createElement("div", {
+    className: "clash-grid-wrap"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "clash-grid",
+    style: {
+      gridTemplateColumns: `88px repeat(${grid.columns.length}, minmax(58px, 1fr))`
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "clash-grid-label-cell"
+  }, "TIME"), headCells, /*#__PURE__*/React.createElement("div", {
+    className: "clash-grid-label-cell"
+  }, "RINK 1"), rink1Cells, /*#__PURE__*/React.createElement("div", {
+    className: "clash-grid-label-cell"
+  }, "RINK 4"), rink4Cells)));
+}
 function ClashFinder({
   onJumpToMatch
 }) {
+  const [viewMode, setViewMode] = useState('grid');
   const clashes = useMemo(() => buildCommentatorClashes(), []);
   const byDay = useMemo(() => {
     const map = new Map();
@@ -3109,7 +3267,34 @@ function ClashFinder({
   const intro = /*#__PURE__*/React.createElement("div", {
     className: "clash-intro"
   }, "Flags David Corkill, Charlie Brougham and Paul Mitchell whenever they're booked as lead on Rink 1 and then, in the very next slot of the same session, booked as lead on Rink 4 (or vice versa) — the two rinks sit at opposite ends of the hall, so there's no way to cover both live. Sharyn, DJ, Barrie and Sian aren't checked here since they never carry a rink solo in the published rota.");
-  const body = clashes.length === 0 ? /*#__PURE__*/React.createElement("div", {
+  const toggle = /*#__PURE__*/React.createElement("div", {
+    className: "clash-view-toggle"
+  }, /*#__PURE__*/React.createElement("button", {
+    className: viewMode === 'grid' ? 'active' : '',
+    onClick: () => setViewMode('grid')
+  }, "Grid"), /*#__PURE__*/React.createElement("button", {
+    className: viewMode === 'list' ? 'active' : '',
+    onClick: () => setViewMode('list')
+  }, "List"));
+  const legend = /*#__PURE__*/React.createElement("div", {
+    className: "clash-grid-legend"
+  }, Object.entries(COMMENTATORS).map(([k, v]) => /*#__PURE__*/React.createElement("div", {
+    key: k,
+    className: "clash-grid-legend-item"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "clash-grid-legend-chip cc-" + k
+  }, k), v, CLASH_WATCH_CODES.includes(k) ? ' *' : '')), /*#__PURE__*/React.createElement("div", {
+    className: "clash-grid-legend-item"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "clash-grid-legend-chip clash-grid-cell-hot"
+  }, "!"), "Clash"));
+  const gridBody = SCHEDULE.map((day, dayId) => /*#__PURE__*/React.createElement(ClashGridDay, {
+    key: dayId,
+    dayId,
+    allClashes: clashes,
+    onJumpToMatch
+  }));
+  const listBody = clashes.length === 0 ? /*#__PURE__*/React.createElement("div", {
     className: "clash-empty"
   }, "No clashes found — the rota is clean.") : byDay.map(([dayId, dayClashes]) => {
     const rowEls = dayClashes.map((c, i) => {
@@ -3136,7 +3321,7 @@ function ClashFinder({
   });
   return /*#__PURE__*/React.createElement("div", {
     className: "view"
-  }, header, intro, body);
+  }, header, intro, toggle, viewMode === 'grid' ? legend : null, viewMode === 'grid' ? gridBody : listBody);
 }
 // Run-up blocks (preroll/midrunup) count DOWN toward the match start at
 // 0:00; run-down blocks (midrundown/endrundown) count UP from the match
@@ -3861,7 +4046,11 @@ function App() {
       onClick: () => selectRow(row)
     }, /*#__PURE__*/React.createElement("span", {
       className: "wall-row-tab-head"
-    }, row.matchNumber && `M${row.matchNumber} · `, row.time), /*#__PURE__*/React.createElement("span", {
+    }, row.matchNumber && /*#__PURE__*/React.createElement("span", {
+      className: "wall-row-tab-num"
+    }, `M${row.matchNumber}`), /*#__PURE__*/React.createElement("span", {
+      className: "wall-row-tab-time"
+    }, row.time)), /*#__PURE__*/React.createElement("span", {
       className: "wall-row-tab-matches"
     }, /*#__PURE__*/React.createElement("span", {
       className: "wall-row-tab-match"
