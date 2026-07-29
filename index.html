@@ -333,6 +333,26 @@
   .log-row-set1 { color: var(--carpet-light); background: rgba(58,160,214,0.14); }
   .log-row-set2 { color: var(--set2-fg); background: var(--set2-bg); }
   .log-row-tiebreak { color: var(--live); background: rgba(255,107,94,0.15); }
+  /* END chip ramp — deliberately fixed hex, not theme variables. Each step
+     is a self-contained light-bg/dark-text or dark-bg/light-text pair, so
+     legibility comes from the chip's own two colours rather than contrast
+     against the page, and the ramp reads identically in both themes. Only
+     applied to the END chip (see logRowEndVariant) — the SET chip keeps
+     its flat .log-row-set1/set2 colour above. */
+  .log-row-end-set1-e1 { color: #042C53; background: #E6F1FB; }
+  .log-row-end-set1-e2 { color: #042C53; background: #B5D4F4; }
+  .log-row-end-set1-e3 { color: #042C53; background: #85B7EB; }
+  .log-row-end-set1-e4 { color: #F5F8FA; background: #378ADD; }
+  .log-row-end-set1-e5 { color: #F5F8FA; background: #185FA5; }
+  .log-row-end-set1-e6 { color: #F5F8FA; background: #0C447C; }
+  .log-row-end-set1-e7 { color: #F5F8FA; background: #042C53; }
+  .log-row-end-set2-e1 { color: #173404; background: #EAF3DE; }
+  .log-row-end-set2-e2 { color: #173404; background: #C0DD97; }
+  .log-row-end-set2-e3 { color: #173404; background: #97C459; }
+  .log-row-end-set2-e4 { color: #F5F8FA; background: #639922; }
+  .log-row-end-set2-e5 { color: #F5F8FA; background: #3B6D11; }
+  .log-row-end-set2-e6 { color: #F5F8FA; background: #27500A; }
+  .log-row-end-set2-e7 { color: #F5F8FA; background: #173404; }
   .log-row-desc { flex: 1; color: var(--text); }
   .log-row-rating { color: var(--standby); flex-shrink: 0; letter-spacing: 1px; }
   .log-row-edit { background: transparent; border: none; color: var(--text-faint); font-size: 12px; padding: 0 4px; flex-shrink: 0; }
@@ -2112,6 +2132,23 @@ function logRowVariant(label) {
   if (/set\s*1/i.test(label)) return 'set1';
   return null;
 }
+// Picks the END chip's colour class — a 7-step light-to-dark ramp within
+// the set's own hue (blue for Set 1, green for Set 2) so end 1 through end
+// 7 are each visually distinct from one another, not just from the SET
+// chip. Steps are a real lightness ramp (see .log-row-end-set1-e1..e7 /
+// -set2-e1..e7 below), not an opacity tint, so neighbouring ends (e.g. 3
+// vs 4) stay clearly separable rather than blurring together. Tiebreak
+// isn't ramped — a tiebreak set is always exactly one end, so there's
+// nothing to distinguish — and just keeps its flat red colour. Clamped to
+// 1–7 so a hand-typed End ID outside that range (or non-numeric) still
+// gets a sane chip instead of no styling.
+function logRowEndVariant(setLabel, endLabel) {
+  const variant = logRowVariant(setLabel);
+  if (variant !== 'set1' && variant !== 'set2') return variant;
+  const n = parseInt(endLabel, 10);
+  const step = Number.isFinite(n) ? Math.min(7, Math.max(1, n)) : 1;
+  return `end-${variant}-e${step}`;
+}
 // Classifies a (possibly hand-edited) Set ID string into a set index (0/1/2)
 // the same way logRowVariant does for its narrower purpose — used to filter
 // the Logsheet down to just the active set's entries in Log mode. Returns
@@ -2681,7 +2718,7 @@ function LogSheet({
   }, e.timecode || '—'), e.setLabel && /*#__PURE__*/React.createElement("span", {
     className: "log-row-set" + (logRowVariant(e.setLabel) ? ' log-row-' + logRowVariant(e.setLabel) : '')
   }, e.setLabel), e.endLabel && /*#__PURE__*/React.createElement("span", {
-    className: "log-row-end" + (logRowVariant(e.setLabel) ? ' log-row-' + logRowVariant(e.setLabel) : '')
+    className: "log-row-end" + (logRowEndVariant(e.setLabel, e.endLabel) ? ' log-row-' + logRowEndVariant(e.setLabel, e.endLabel) : '')
   }, "END ", e.endLabel), /*#__PURE__*/React.createElement("span", {
     className: "log-row-desc"
   }, e.description), /*#__PURE__*/React.createElement("div", {
