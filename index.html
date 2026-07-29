@@ -330,7 +330,9 @@
   .log-row-tc { font-family: 'IBM Plex Mono', monospace; color: var(--text); flex-shrink: 0; width: 60px; white-space: nowrap; }
   .log-row-set { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--carpet-light); background: rgba(58,160,214,0.14); border-radius: 4px; padding: 2px 6px; flex-shrink: 0; white-space: nowrap; align-self: flex-start; }
   .log-row-end { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--text-faint); background: var(--panel-raised); border-radius: 4px; padding: 2px 6px; flex-shrink: 0; white-space: nowrap; align-self: flex-start; }
+  .log-row-set1 { color: var(--carpet-light); background: rgba(58,160,214,0.14); }
   .log-row-set2 { color: var(--set2-fg); background: var(--set2-bg); }
+  .log-row-tiebreak { color: var(--live); background: rgba(255,107,94,0.15); }
   .log-row-desc { flex: 1; color: var(--text); }
   .log-row-rating { color: var(--standby); flex-shrink: 0; letter-spacing: 1px; }
   .log-row-edit { background: transparent; border: none; color: var(--text-faint); font-size: 12px; padding: 0 4px; flex-shrink: 0; }
@@ -435,9 +437,12 @@
      to the ordinary Gallery Wall view, which is where scoring itself
      still happens. Escape (or L again) exits back to the normal layout. */
   .log-mode-page { flex: 1; display: flex; flex-direction: column; min-height: 0; padding: 14px 20px 20px; gap: 10px; }
-  .log-mode-topbar { display: flex; justify-content: space-between; align-items: center; }
-  .log-mode-hint { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.08em; color: var(--text-faint); }
-  .log-mode-exit { background: var(--panel); border: 1px solid var(--line); color: var(--text-dim); font-size: 12px; padding: 6px 12px; border-radius: 6px; }
+  .log-mode-topbar { display: flex; justify-content: space-between; align-items: center; gap: 14px; }
+  .log-mode-hint { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.08em; color: var(--text-faint); flex-shrink: 0; }
+  .log-mode-times { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; flex: 1; }
+  .log-mode-time-chip { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.04em; color: var(--text-dim); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 4px 10px; white-space: nowrap; }
+  .log-mode-time-chip b { color: var(--text); font-weight: 600; }
+  .log-mode-exit { background: var(--panel); border: 1px solid var(--line); color: var(--text-dim); font-size: 12px; padding: 6px 12px; border-radius: 6px; flex-shrink: 0; }
   .log-mode-grid { display: grid; grid-template-columns: 1fr 1fr; grid-auto-rows: 1fr; gap: 14px; flex: 1; min-height: 0; }
   @media (max-width: 900px) { .log-mode-grid { grid-template-columns: 1fr; } }
   .log-mode-card { max-height: none; height: 100%; }
@@ -1182,32 +1187,32 @@ const SCHEDULE = [{
     "time": "08:30–13:30",
     "rows": [{
       "time": "08:30",
-      "tv1": null,
+      "tv1": "P&B",
       "matches": [["PXP", null, "GOLD MEDAL MATCH"], null, null, ["PXP", null, "BRONZE MEDAL MATCH"]],
-      "tv4": null
+      "tv4": "DC&S"
     }, {
       "time": "10:10",
-      "tv1": null,
+      "tv1": "DC&S",
       "matches": [["WP", null, "GOLD MEDAL MATCH"], null, null, ["WP", null, "BRONZE MEDAL MATCH"]],
-      "tv4": null
+      "tv4": "CH&DJ"
     }, {
       "time": "11:35",
-      "tv1": null,
+      "tv1": "CH&DJ",
       "matches": [["MS", null, "GOLD MEDAL MATCH"], null, null, ["MS", null, "BRONZE MEDAL MATCH"]],
-      "tv4": null
+      "tv4": "P&B"
     }, {
       "time": "13:00",
-      "tv1": null,
+      "tv1": "P",
       "matches": [["PXP", null, "MEDAL CEREMONY"], null, null, null],
       "tv4": null
     }, {
       "time": "13:10",
-      "tv1": null,
+      "tv1": "DC",
       "matches": [["WP", null, "MEDAL CEREMONY"], null, null, null],
       "tv4": null
     }, {
       "time": "13:20",
-      "tv1": null,
+      "tv1": "CH",
       "matches": [["MS", null, "MEDAL CEREMONY"], null, null, null],
       "tv4": null
     }]
@@ -1231,14 +1236,14 @@ const SCHEDULE = [{
       "tv4": "DC&S"
     }, {
       "time": "19:15",
-      "tv1": "DC",
+      "tv1": "CH&B",
       "matches": [["PMP", "AUS", "NZL"], ["PMP", "SCO", "RSA"], ["PMP", "ENG", "SIN"], ["MP", "ENG", "FLK"]],
-      "tv4": "CH&S"
+      "tv4": "DC&S"
     }, {
       "time": "20:40",
-      "tv1": "P",
+      "tv1": "CH&DJ",
       "matches": [["PWP", "SCO", "MAS"], ["PWP", "AUS", "NZL"], ["PWP", "ENG", "CAN"], ["WS", "WAL", "IND"]],
-      "tv4": "CH&S"
+      "tv4": "P&S"
     }]
   }]
 }, {
@@ -1265,9 +1270,9 @@ const SCHEDULE = [{
       "tv4": "DC&B"
     }, {
       "time": "12:45",
-      "tv1": "DC&S",
+      "tv1": "P&S",
       "matches": [["WS", "AUS", "ENG"], ["PMP", "AUS", "ENG"], ["PMP", "NZL", "RSA"], ["PMP", "SCO", "SIN"]],
-      "tv4": "P&DJ"
+      "tv4": "DC&DJ"
     }]
   }, {
     "name": "PM Session",
@@ -1284,12 +1289,12 @@ const SCHEDULE = [{
       "tv4": "CH&B"
     }, {
       "time": "17:50",
-      "tv1": "CH&B",
+      "tv1": "DC&B",
       "matches": [["PWP", "AUS", "ENG"], ["PWP", "SCO", "CAN"], ["PWP", "NZL", "MAS"], ["WS", "WAL", "RSA"]],
       "tv4": "P&DJ"
     }, {
       "time": "19:15",
-      "tv1": "DC&S",
+      "tv1": "CH&S",
       "matches": [["WS", "MAS", "ZAM"], ["MP", "COK", "FLK"], ["WS", "NFI", "NAM"], ["MP", "SCO", "IOM"]],
       "tv4": "P&DJ"
     }, {
@@ -1313,28 +1318,28 @@ const SCHEDULE = [{
       "tv4": "CH&B"
     }, {
       "time": "09:55",
-      "tv1": "P&DJ",
+      "tv1": "P&S",
       "matches": [["MP", "NIR", "PAK"], ["WS", "AUS", "JER"], ["WS", "FLK", "MLT"], ["WS", "ENG", "CAN"]],
       "tv4": "DC&SIAN"
     }, {
       "time": "11:20",
-      "tv1": "CH&DJ",
+      "tv1": "CH&B",
       "matches": [["MP", "FIJ", "AUS"], ["MP", "NZL", "TGA"], ["MP", "JER", "MLT"], ["MP", "WAL", "GGY"]],
       "tv4": "DC&SIAN"
     }, {
       "time": "12:45",
-      "tv1": "P&B",
+      "tv1": "DJ&B",
       "matches": [["MP", "MAS", "NIU"], ["MP", "SCO", "NFI"], ["WS", "GGY", "SIN"], ["WS", "NZL", "BOT"]],
-      "tv4": "DC&SIAN"
+      "tv4": "P&SIAN"
     }]
   }, {
     "name": "PM Session (block A)",
     "time": "15:00–21:55",
     "rows": [{
       "time": "15:00",
-      "tv1": "CH&S",
+      "tv1": "CH&SIAN",
       "matches": [["WS", "RSA", "IOM"], ["MP", "IND", "BOT"], ["MP", "NAM", "FLK"], ["WS", "NIR", "NIU"]],
-      "tv4": "P&SIAN"
+      "tv4": "DJ&B"
     }, {
       "time": "16:25",
       "tv1": "P&B",
@@ -1342,19 +1347,19 @@ const SCHEDULE = [{
       "tv4": "DC&S"
     }, {
       "time": "17:50",
-      "tv1": "DJ&B",
+      "tv1": "CH&DJ",
       "matches": [["WS", "NFI", "FIJ"], ["MP", "RSA", "IOM"], ["WS", "KEN", "TGA"], ["WS", "SCO", "NAM"]],
-      "tv4": "P&S"
+      "tv4": "DC&S"
     }, {
       "time": "19:15",
-      "tv1": "DC&B",
+      "tv1": "CH&DJ",
       "matches": [["MP", "NIR", "NZL"], ["WS", "FLK", "CAN"], ["WS", "WAL", "ZAM"], ["WS", "COK", "JER"]],
-      "tv4": "CH&S"
+      "tv4": "P&S"
     }, {
       "time": "20:40",
       "tv1": "DJ&B",
       "matches": [["MP", "FIJ", "PAK"], ["PWP", "ENG", "MAS"], ["PWP", "AUS", "CAN"], ["PWP", "SCO", "NZL"]],
-      "tv4": "CH&S"
+      "tv4": "DC&S"
     }]
   }]
 }, {
@@ -2095,15 +2100,21 @@ function currentEndLabel(sets) {
   const ends = sets[idx] && sets[idx].ends;
   return ends && ends.length ? String(ends.length) : '1';
 }
-// Whether a (possibly hand-edited) Set ID string refers to Set 2 — used
-// purely for the green Set 2 colour cue on Logsheet chips, so a producer
-// who typed "set2", "Set 2", etc. still gets the right colour rather than
-// only matching the exact auto-generated "Set 2" string.
-function isSet2Label(label) {
-  return typeof label === 'string' && /set\s*2/i.test(label);
+// Classifies a (possibly hand-edited) Set ID string into a Logsheet chip
+// colour variant — 'set1' (blue), 'set2' (green), or 'tiebreak' (red) — so a
+// producer who typed "set2", "tiebreak", "TB", etc. still gets the right
+// colour rather than only matching the exact auto-generated label strings.
+// Returns null for blank/unrecognized text, which leaves the chip
+// unstyled (neutral) rather than guessing.
+function logRowVariant(label) {
+  if (typeof label !== 'string') return null;
+  if (/tie ?break|^tb\b/i.test(label)) return 'tiebreak';
+  if (/set\s*2/i.test(label)) return 'set2';
+  if (/set\s*1/i.test(label)) return 'set1';
+  return null;
 }
 // Classifies a (possibly hand-edited) Set ID string into a set index (0/1/2)
-// the same way isSet2Label does for its narrower purpose — used to filter
+// the same way logRowVariant does for its narrower purpose — used to filter
 // the Logsheet down to just the active set's entries in Log mode. Returns
 // null for blank or unrecognized text (a hand-typed label that doesn't
 // match any of the three patterns), which deliberately excludes those
@@ -2669,9 +2680,9 @@ function LogSheet({
   }, /*#__PURE__*/React.createElement("span", {
     className: "log-row-tc"
   }, e.timecode || '—'), e.setLabel && /*#__PURE__*/React.createElement("span", {
-    className: "log-row-set" + (isSet2Label(e.setLabel) ? ' log-row-set2' : '')
+    className: "log-row-set" + (logRowVariant(e.setLabel) ? ' log-row-' + logRowVariant(e.setLabel) : '')
   }, e.setLabel), e.endLabel && /*#__PURE__*/React.createElement("span", {
-    className: "log-row-end" + (isSet2Label(e.setLabel) ? ' log-row-set2' : '')
+    className: "log-row-end" + (logRowVariant(e.setLabel) ? ' log-row-' + logRowVariant(e.setLabel) : '')
   }, "END ", e.endLabel), /*#__PURE__*/React.createElement("span", {
     className: "log-row-desc"
   }, e.description), /*#__PURE__*/React.createElement("div", {
@@ -3887,6 +3898,11 @@ function App() {
     }
     return {
       current: list[currentIdx],
+      // The very next match in time order on this rink (not just any
+      // not-yet-played one) — used for the "next match" readout in Log
+      // mode's top bar. null once the current match is the last of the
+      // session.
+      next: list[currentIdx + 1] || null,
       upcoming: list.filter((_, i) => i !== currentIdx)
     };
   });
@@ -3957,7 +3973,15 @@ function App() {
       className: "log-mode-topbar"
     }, /*#__PURE__*/React.createElement("span", {
       className: "log-mode-hint"
-    }, "LOG MODE · PRESS L OR ESC TO EXIT"), /*#__PURE__*/React.createElement("button", {
+    }, "LOG MODE · PRESS L OR ESC TO EXIT"), /*#__PURE__*/React.createElement("div", {
+      className: "log-mode-times"
+    }, tvSlots.map(({
+      rinkIdx,
+      slot
+    }) => /*#__PURE__*/React.createElement("span", {
+      className: "log-mode-time-chip",
+      key: rinkIdx
+    }, "RINK ", slot.current.rink, " · STARTED ", /*#__PURE__*/React.createElement("b", null, slot.current.time || '—'), " · NEXT ", /*#__PURE__*/React.createElement("b", null, slot.next ? slot.next.time : '—')))), /*#__PURE__*/React.createElement("button", {
       className: "log-mode-exit",
       onClick: () => setLogMode(false)
     }, "Exit log mode")), /*#__PURE__*/React.createElement("div", {
