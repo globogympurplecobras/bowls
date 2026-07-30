@@ -178,6 +178,11 @@
 
   .legend-toggle { display: inline-flex; align-items: center; gap: 6px; background: var(--panel); border: 1px solid var(--line); color: var(--text-dim); font-size: 12px; padding: 6px 10px; border-radius: 6px; }
   .discipline-select { background: var(--panel); border: 1px solid var(--line); color: var(--text); font-family: 'Manrope', sans-serif; font-size: 12px; padding: 7px 10px; border-radius: 6px; }
+  .standings-mode-toggle { display: flex; gap: 6px; margin: 12px 0; }
+  .mode-btn { background: var(--panel); border: 1px solid var(--line); color: var(--text-dim); font-family: 'Oswald', sans-serif; font-size: 12px; letter-spacing: 0.03em; padding: 7px 14px; border-radius: 6px; }
+  .mode-btn-active { background: var(--carpet); border-color: var(--carpet-light); color: var(--text); }
+  .official-section-block { margin-bottom: 22px; }
+  .official-section-title { font-family: 'Oswald', sans-serif; text-transform: uppercase; font-size: 13px; letter-spacing: 0.03em; color: var(--text-dim); margin: 0 0 8px; }
   .legend-panel { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; margin-bottom: 16px; font-size: 12px; }
   @media (max-width: 720px) { .legend-panel { grid-template-columns: 1fr; } }
   .legend-title { font-family: 'Oswald', sans-serif; text-transform: uppercase; font-size: 12px; letter-spacing: 0.04em; color: var(--text); margin-bottom: 6px; }
@@ -2860,16 +2865,40 @@ function LogModeCard({
   })));
 }
 function Standings({
-  scores
+  scores,
+  officialStandings
 }) {
   const disciplineCodes = Object.keys(DISCIPLINES);
   const [disc, setDisc] = useState(disciplineCodes[0]);
+  const officialDoc = officialStandings && officialStandings[disc];
+  // Which table is showing: 'official' (scraped sectional groups from the
+  // Glasgow 2026 results site) or 'local' (this app's own cumulative record
+  // built from matches logged here — see buildDisciplineStandings). Defaults
+  // to official whenever it's available for the selected discipline, but a
+  // producer can flip to local (e.g. to sanity-check a score just entered
+  // here against what hasn't synced to the official site yet); reset back
+  // to the default on every discipline change rather than carrying a
+  // manual override across disciplines where it might not apply.
+  const [modeOverride, setModeOverride] = useState(null);
+  useEffect(() => {
+    setModeOverride(null);
+  }, [disc]);
+  const mode = modeOverride || (officialDoc ? 'official' : 'local');
   const rows = useMemo(() => buildDisciplineStandings(disc, scores), [disc, scores]);
+  const toggle = officialDoc ? /*#__PURE__*/React.createElement("div", {
+    className: "standings-mode-toggle"
+  }, /*#__PURE__*/React.createElement("button", {
+    className: mode === 'official' ? 'mode-btn mode-btn-active' : 'mode-btn',
+    onClick: () => setModeOverride('official')
+  }, "Official sectional"), /*#__PURE__*/React.createElement("button", {
+    className: mode === 'local' ? 'mode-btn mode-btn-active' : 'mode-btn',
+    onClick: () => setModeOverride('local')
+  }, "Local record")) : null;
   const header = /*#__PURE__*/React.createElement("div", {
     className: "view-header sched-header"
   }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     className: "eyebrow"
-  }, "CUMULATIVE RECORD · ALL DAYS · LIVE"), /*#__PURE__*/React.createElement("h2", null, "Standings")), /*#__PURE__*/React.createElement("select", {
+  }, mode === 'official' ? 'OFFICIAL SECTIONAL GROUPS · GLASGOW 2026' : 'CUMULATIVE RECORD · ALL DAYS · LIVE'), /*#__PURE__*/React.createElement("h2", null, "Standings")), /*#__PURE__*/React.createElement("select", {
     className: "discipline-select",
     value: disc,
     onChange: e => setDisc(e.target.value)
@@ -2877,6 +2906,40 @@ function Standings({
     key: code,
     value: code
   }, DISCIPLINES[code]))));
+  if (mode === 'official' && officialDoc) {
+    const updated = officialDoc.updatedAt ? new Date(officialDoc.updatedAt) : null;
+    const sectionTables = (officialDoc.sections || []).map((section, si) => {
+      const headCells = (section.headers || []).map((h, hi) => /*#__PURE__*/React.createElement("th", {
+        key: hi
+      }, h));
+      const bodyRows = (section.rows || []).map((row, ri) => {
+        const cells = (row.cells || []).map((cell, ci) => /*#__PURE__*/React.createElement("td", {
+          key: ci
+        }, cell));
+        return /*#__PURE__*/React.createElement("tr", {
+          key: ri,
+          className: ri === 0 ? 'row-lead' : ''
+        }, cells);
+      });
+      const table = /*#__PURE__*/React.createElement("div", {
+        className: "table-wrap"
+      }, /*#__PURE__*/React.createElement("table", null, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, headCells)), /*#__PURE__*/React.createElement("tbody", null, bodyRows)));
+      return /*#__PURE__*/React.createElement("div", {
+        key: si,
+        className: "official-section-block"
+      }, /*#__PURE__*/React.createElement("h3", {
+        className: "official-section-title"
+      }, section.name), table);
+    });
+    return /*#__PURE__*/React.createElement("div", {
+      className: "view"
+    }, header, toggle, sectionTables, /*#__PURE__*/React.createElement("div", {
+      className: "panel-note",
+      style: {
+        marginTop: 12
+      }
+    }, "Scraped from the official Glasgow 2026 results site (Groups tab) by a scheduled sync", updated ? ` — last updated ${updated.toLocaleTimeString()} on ${updated.toLocaleDateString()}` : '', ". This is the tournament's own sectional grouping, not derived from scores logged in this app."));
+  }
   const tableRows = rows.map((r, i) => /*#__PURE__*/React.createElement("tr", {
     key: r.code,
     className: i === 0 ? 'row-lead' : ''
@@ -2893,7 +2956,7 @@ function Standings({
   const note = rows.length ? 'Built from completed ("FT") matches recorded in this discipline, across all days — there is no official sectional grouping in the source data, so this is a full cumulative record rather than a sectional table.' : 'No completed matches recorded yet for this discipline. This table fills in automatically as matches are marked final in the Gallery Wall.';
   return /*#__PURE__*/React.createElement("div", {
     className: "view"
-  }, header, table, /*#__PURE__*/React.createElement("div", {
+  }, header, toggle, table, /*#__PURE__*/React.createElement("div", {
     className: "panel-note",
     style: {
       marginTop: 12
@@ -3738,6 +3801,29 @@ function App() {
     return () => unsub();
   }, []);
 
+  // Official sectional standings, scraped from the Glasgow 2026 results
+  // site's own Groups tab and pushed into a separate `officialStandings`
+  // collection (one doc per discipline code) by a scheduled scrape — see
+  // scripts/scrape-and-push-standings.md. This is deliberately a different
+  // collection from `matches`: it's read-only from this app's point of view
+  // and reflects the official tournament grouping (sections A/B/C/D with
+  // byes, game points, sets), which `buildDisciplineStandings` above can't
+  // produce since the schedule data has no sectional grouping baked in.
+  // Empty object (no listener) when Firebase isn't configured or no scrape
+  // has run yet — Standings falls back to the local cumulative record.
+  const [officialStandings, setOfficialStandings] = useState({});
+  useEffect(() => {
+    if (!FIREBASE_ENABLED) return;
+    const unsub = db.collection('officialStandings').onSnapshot(snap => {
+      const remote = {};
+      snap.docs.forEach(d => {
+        remote[d.id] = d.data();
+      });
+      setOfficialStandings(remote);
+    });
+    return () => unsub();
+  }, []);
+
   // Local mode: persist to this browser only.
   useEffect(() => {
     if (FIREBASE_ENABLED) return;
@@ -4160,7 +4246,8 @@ function App() {
     day: day,
     scores: scores
   }), view === 'standings' && /*#__PURE__*/React.createElement(Standings, {
-    scores
+    scores,
+    officialStandings
   }), view === 'sync' && /*#__PURE__*/React.createElement(Sync, {
     scores
   }))));
